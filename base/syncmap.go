@@ -2,12 +2,14 @@ package base
 
 import "sync"
 
+//Dictionary key-value pair object
 type KeyValue struct {
 	Key   interface{}
 	Value interface{}
 }
 
-type SyncMap interface {
+//Extended map interface
+type CloveMap interface {
 	Set(key, value interface{})
 	Get(key interface{}) interface{}
 
@@ -25,25 +27,29 @@ type SyncMap interface {
 	IterItems() <-chan KeyValue
 }
 
+//Extended map object
 type dict struct {
 	m     map[interface{}]interface{}
 	rw    sync.RWMutex
 	block bool
 }
 
-func New(block bool) SyncMap {
+//Create a CloveMap object
+func NewCloveMap(block bool) CloveMap {
 	var sm = &dict{}
 	sm.block = block
 	sm.m = make(map[interface{}]interface{})
 	return sm
 }
 
-func NewSync() SyncMap {
-	return New(true)
+//Create a sync CloveMap object
+func NewSyncCloveMap() CloveMap {
+	return NewCloveMap(true)
 }
 
-func NewAsync() SyncMap {
-	return New(false)
+//Create an async CloveMap object
+func NewAsyncCloveMap() CloveMap {
+	return NewCloveMap(false)
 }
 
 func (d *dict) lock() {

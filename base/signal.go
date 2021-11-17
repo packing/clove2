@@ -9,6 +9,7 @@ import (
 	"syscall"
 )
 
+// Waiting for a signal for the process to exit or interrupt
 func WaitExitSignal() os.Signal {
 	c := make(chan os.Signal, 1)
 	signals := []os.Signal{
@@ -29,6 +30,7 @@ func WaitExitSignal() os.Signal {
 	return s
 }
 
+// Get the ID of the current Goroutine
 func GetGoroutineId() int {
 	defer func() {
 		if err := recover(); err != nil {
