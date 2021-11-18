@@ -63,3 +63,7 @@ func AbsForInt64(n int64) int64 {
 func AbsForInt32(n int) int {
 	return (n ^ n>>32) - n>>32
 }
+
+func TestMask(n int, mask int) bool {
+	return (n & mask) == mask
+}
