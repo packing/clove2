@@ -40,11 +40,12 @@ func CreateListener() *Listener {
 
 func (listener Listener) Start(addr string, processor ConnectionProcessor) error {
 
-	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+	tcpAddr, err := net.ResolveTCPAddr("tcp4", addr)
 	if err != nil {
 		return err
 	}
-	l, err := net.ListenTCP("tcp", tcpAddr)
+
+	l, err := net.ListenTCP("tcp4", tcpAddr)
 	if err != nil {
 		return err
 	}
