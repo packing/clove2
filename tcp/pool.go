@@ -130,8 +130,6 @@ func (pool *StandardPool) Lookup() {
 				if value != nil {
 					c, ok := value.(*Controller)
 					if ok && c != nil {
-						c.ProcessRead()
-						c.ProcessWrite()
 						if !c.CheckAlive() {
 							pool.controllers.Delete(key)
 							atomic.AddInt32(&pool.curr, -1)

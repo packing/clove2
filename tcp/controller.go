@@ -21,15 +21,24 @@ package tcp
 
 import (
 	"net"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/packing/clove2/base"
 )
 
 type Controller struct {
-	conn      net.Conn
-	sessionId base.CloveId
-	flag      int
-	manager   ControllerManager
+	conn        net.Conn
+	sessionId   base.CloveId
+	flag        int
+	totalRBytes int64
+	totalSBytes int64
+	totalRPcks  int64
+	totalSPcks  int64
+	manager     ControllerManager
+	waitg       *sync.WaitGroup
+	queueSent   base.ChannelQueue
 }
 
 const (
@@ -54,11 +63,37 @@ func CreateController(conn net.Conn, m ControllerManager) *Controller {
 	c.conn = conn
 	c.manager = m
 	c.flag = cFlagOpened
+	c.queueSent = make(base.ChannelQueue)
+	c.process()
 	return c
 }
 
 func (controller *Controller) GetId() base.CloveId {
 	return controller.sessionId
+}
+
+func (controller *Controller) GetRemoteHostName() string {
+	return controller.conn.RemoteAddr().String()
+}
+
+func (controller *Controller) GetLocalHostName() string {
+	return controller.conn.LocalAddr().String()
+}
+
+func (controller Controller) GetTotalRecvBytes() int64 {
+	return controller.totalRBytes
+}
+
+func (controller Controller) GetTotalSentBytes() int64 {
+	return controller.totalSBytes
+}
+
+func (controller Controller) GetTotalRecvPackets() int64 {
+	return controller.totalRPcks
+}
+
+func (controller Controller) GetTotalSentPackets() int64 {
+	return controller.totalSPcks
 }
 
 func (controller *Controller) Close() {
@@ -69,18 +104,87 @@ func (controller *Controller) Close() {
 
 func (controller *Controller) CheckAlive() bool {
 	if controller.flag == cFlagClosing {
+
+		controller.queueSent.Close()
+		controller.waitg.Wait()
+
 		controller.manager.ControllerLeave(controller)
 		_ = controller.conn.Close()
 		controller.flag = cFlagClosed
+
 		return false
 	}
 	return controller.flag == cFlagOpened
 }
 
-func (controller *Controller) ProcessRead() {
+func (controller Controller) SendBytes(sentBytes []byte) bool {
+	if controller.flag != cFlagOpened {
+		return false
+	}
 
+	go func() { controller.queueSent <- sentBytes }()
+
+	return true
 }
 
-func (controller *Controller) ProcessWrite() {
+func (controller *Controller) processRead() {
+	defer func() {
+		base.LogPanic(recover())
+	}()
 
+	var buf = make([]byte, 512)
+
+	for {
+		n, err := controller.conn.Read(buf)
+		if err == nil && n > 0 {
+			atomic.AddInt64(&controller.totalRBytes, int64(n))
+		}
+		if err != nil || n == 0 {
+			controller.Close()
+			break
+		}
+	}
+
+	controller.waitg.Done()
+}
+
+func (controller *Controller) processWrite() {
+	defer func() {
+		base.LogPanic(recover())
+	}()
+
+	for {
+		isentBytes, ok := <-controller.queueSent
+		if ok {
+			sentBytes, ok := isentBytes.([]byte)
+			if ok {
+				for {
+					e := controller.conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
+					if e != nil {
+						controller.Close()
+						break
+					}
+					n, e := controller.conn.Write(sentBytes)
+					if e != nil {
+						controller.Close()
+						break
+					}
+					if n < len(sentBytes) {
+						sentBytes = sentBytes[n:]
+						continue
+					}
+				}
+			}
+		} else {
+			break
+		}
+	}
+	controller.waitg.Done()
+}
+
+func (controller *Controller) process() {
+	controller.waitg = new(sync.WaitGroup)
+	controller.waitg.Add(2)
+	go controller.processRead()
+	go controller.processWrite()
 }
