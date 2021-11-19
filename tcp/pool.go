@@ -23,6 +23,7 @@ import (
 	"encoding/binary"
 	"net"
 	"sync"
+	"sync/atomic"
 
 	"github.com/packing/clove2/base"
 	"github.com/packing/clove2/codec"
@@ -38,12 +39,13 @@ type StandardPool struct {
 	OnControllerLeave func(*Controller)
 
 	limit int
-	top   int
+	top   int32
+	curr  int32
 	total int64
 
 	closed bool
 
-	controllers base.CloveMap
+	controllers *sync.Map
 
 	waitg *sync.WaitGroup
 	mutex sync.Mutex
@@ -52,7 +54,8 @@ type StandardPool struct {
 // Create a default tcp StandardPool instance.
 func CreateStandardPool() *StandardPool {
 	p := new(StandardPool)
-	p.controllers = base.NewSyncCloveMap()
+	p.controllers = new(sync.Map)
+	p.limit = -1
 	p.waitg = new(sync.WaitGroup)
 	return p
 }
@@ -73,22 +76,23 @@ func CreateStandardPoolWithByteOrder(b binary.ByteOrder, n int) *StandardPool {
 }
 
 func (pool *StandardPool) AddConnection(conn net.Conn) error {
-	base.LogInfo("AddConnection 1")
-	if pool.controllers.Count() < pool.limit {
-		base.LogInfo("AddConnection 2")
+	if pool.limit <= 0 || pool.curr < int32(pool.limit) {
 		c := CreateController(conn, pool)
-		base.LogInfo("AddConnection 3")
 		if c == nil {
 			return errors.New("Failed to create controller.")
 		}
-		base.LogInfo("AddConnection 4")
 		err, ok := <-pool.ControllerEnter(c)
 		if !ok || err != nil {
 			return err
 		}
-		base.LogInfo("AddConnection 5")
-		pool.controllers.Set(c.GetId().Integer(), c)
-		base.LogInfo("AddConnection 6")
+		pool.controllers.Store(c.GetId().Integer(), c)
+
+		atomic.AddInt32(&pool.curr, 1)
+		atomic.AddInt64(&pool.total, 1)
+		if pool.curr > pool.top {
+			atomic.StoreInt32(&pool.curr, pool.curr)
+		}
+
 		return nil
 	} else {
 		return errors.New("Connection limit.")
@@ -122,17 +126,21 @@ func (pool *StandardPool) Lookup() {
 		}()
 
 		for pool.closed {
-			v, ok := <-pool.controllers.IterItems()
-			if ok && v.Value != nil {
-				c, ok := v.Value.(*Controller)
-				if ok && c != nil {
-					c.ProcessRead()
-					c.ProcessWrite()
-					if !c.CheckAlive() {
-						pool.controllers.Pop(v.Key)
+			pool.controllers.Range(func(key, value interface{}) bool {
+				if value != nil {
+					c, ok := value.(*Controller)
+					if ok && c != nil {
+						c.ProcessRead()
+						c.ProcessWrite()
+						if !c.CheckAlive() {
+							pool.controllers.Delete(key)
+							atomic.AddInt32(&pool.curr, -1)
+						}
+						return true
 					}
 				}
-			}
+				return false
+			})
 		}
 
 	}()
@@ -141,12 +149,16 @@ func (pool *StandardPool) Lookup() {
 func (pool *StandardPool) Close() {
 	pool.closed = true
 	pool.waitg.Wait()
-	pool.controllers.Clear()
+
+	pool.controllers.Range(func(key, value interface{}) bool {
+		pool.controllers.Delete(key)
+		return true
+	})
 }
 
 func (pool *StandardPool) CloseController(id base.CloveId) {
-	ic := pool.controllers.Get(id.Integer())
-	if ic != nil {
+	ic, ok := pool.controllers.Load(id.Integer())
+	if ok && ic != nil {
 		c, ok := ic.(*Controller)
 		if ok {
 			c.Close()

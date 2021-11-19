@@ -39,7 +39,6 @@ func CreateListener() *Listener {
 }
 
 func (listener Listener) Start(addr string, processor ConnectionProcessor) error {
-
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return err
@@ -49,16 +48,14 @@ func (listener Listener) Start(addr string, processor ConnectionProcessor) error
 	if err != nil {
 		return err
 	}
-	base.LogInfo("Start listen on: %s", addr)
+	base.LogVerbose("Listen on: %s", addr)
 
 	listener.addr = addr
 	listener.l = l
 
 	go func() {
 		for {
-			base.LogInfo("Accept...")
 			conn, err := listener.l.Accept()
-			base.LogInfo("Accepted.")
 			if err == nil {
 				err = processor.AddConnection(conn)
 				if err != nil {
