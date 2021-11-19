@@ -29,7 +29,7 @@ import (
 type Listener struct {
 	addr string
 
-	l net.Listener
+	l *net.TCPListener
 }
 
 // Create a default tcp listener instance.
