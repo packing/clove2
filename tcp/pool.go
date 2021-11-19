@@ -73,16 +73,22 @@ func CreateStandardPoolWithByteOrder(b binary.ByteOrder, n int) *StandardPool {
 }
 
 func (pool *StandardPool) AddConnection(conn net.Conn) error {
+	base.LogInfo("AddConnection 1")
 	if pool.controllers.Count() < pool.limit {
+		base.LogInfo("AddConnection 2")
 		c := CreateController(conn, pool)
+		base.LogInfo("AddConnection 3")
 		if c == nil {
 			return errors.New("Failed to create controller.")
 		}
+		base.LogInfo("AddConnection 4")
 		err, ok := <-pool.ControllerEnter(c)
 		if !ok || err != nil {
 			return err
 		}
+		base.LogInfo("AddConnection 5")
 		pool.controllers.Set(c.GetId().Integer(), c)
+		base.LogInfo("AddConnection 6")
 		return nil
 	} else {
 		return errors.New("Connection limit.")
