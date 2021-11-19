@@ -44,11 +44,12 @@ func (connector Connector) ConnectWithTimeout(addr string, timeout time.Duration
 		return err
 	}
 
-	if processor.AddConnection(conn) != nil {
+	err = processor.AddConnection(conn)
+	if err != nil {
 		_ = conn.Close()
 	}
 
-	return nil
+	return err
 }
 
 // try to connect to the specified address within 30 seconds.
