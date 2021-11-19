@@ -56,6 +56,8 @@ func (listener Listener) Start(addr string, processor ConnectionProcessor) error
 					base.LogWarn("Failed to accept connection. error: %s", err.Error())
 					_ = conn.Close()
 				}
+			} else {
+				base.LogWarn("Failed to accept connection. error: %s", err.Error())
 			}
 		}
 	}()
