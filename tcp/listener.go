@@ -21,6 +21,8 @@ package tcp
 
 import (
 	"net"
+
+	"github.com/packing/clove2/base"
 )
 
 // Listener           TCP-Listener class
@@ -49,7 +51,9 @@ func (listener Listener) Start(addr string, processor ConnectionProcessor) error
 		for {
 			conn, err := listener.l.Accept()
 			if err == nil {
-				if processor.AddConnection(conn) != nil {
+				err = processor.AddConnection(conn)
+				if err != nil {
+					base.LogWarn("Failed to accept connection. error: %s", err.Error())
 					_ = conn.Close()
 				}
 			}
