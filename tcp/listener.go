@@ -43,6 +43,7 @@ func (listener Listener) Start(addr string, processor ConnectionProcessor) error
 	if err != nil {
 		return err
 	}
+	base.LogWarn("Start listen on: ", addr)
 
 	listener.addr = addr
 	listener.l = l
