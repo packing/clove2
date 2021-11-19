@@ -39,7 +39,7 @@ func CreateConnector() *Connector {
 
 // try to connect to the specified address within a timeout time.
 func (connector Connector) ConnectWithTimeout(addr string, timeout time.Duration, processor ConnectionProcessor) error {
-	conn, err := net.DialTimeout("tcp4", addr, timeout)
+	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,21 @@ func (connector Connector) ConnectWithTimeout(addr string, timeout time.Duration
 
 // try to connect to the specified address within 30 seconds.
 func (connector Connector) Connect(addr string, processor ConnectionProcessor) error {
-	return connector.ConnectWithTimeout(addr, DefaultTimeout, processor)
+	_, err := net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		return err
+	}
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return err
+	}
+
+	err = processor.AddConnection(conn)
+	if err != nil {
+		_ = conn.Close()
+	}
+
+	return err
 }
 
 var instConnector *Connector
