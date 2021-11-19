@@ -43,14 +43,16 @@ func (listener Listener) Start(addr string, processor ConnectionProcessor) error
 	if err != nil {
 		return err
 	}
-	base.LogWarn("Start listen on: ", addr)
+	base.LogInfo("Start listen on: %s", addr)
 
 	listener.addr = addr
 	listener.l = l
 
 	go func() {
 		for {
+			base.LogInfo("Accept...")
 			conn, err := listener.l.Accept()
+			base.LogInfo("Accepted.")
 			if err == nil {
 				err = processor.AddConnection(conn)
 				if err != nil {
