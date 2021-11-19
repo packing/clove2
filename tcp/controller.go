@@ -62,7 +62,9 @@ func (controller *Controller) GetId() base.CloveId {
 }
 
 func (controller *Controller) Close() {
-	controller.flag = cFlagClosing
+	if controller.flag == cFlagOpened {
+		controller.flag = cFlagClosing
+	}
 }
 
 func (controller *Controller) CheckAlive() bool {

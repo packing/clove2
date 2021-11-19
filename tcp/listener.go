@@ -49,7 +49,7 @@ func (listener Listener) Start(addr string, processor ConnectionProcessor) error
 		for {
 			conn, err := listener.l.Accept()
 			if err == nil {
-				if processor.ConnectAccepted(conn) != nil {
+				if processor.AddConnection(conn) != nil {
 					_ = conn.Close()
 				}
 			}

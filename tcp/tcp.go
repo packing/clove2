@@ -22,10 +22,10 @@ package tcp
 import "net"
 
 type ConnectionProcessor interface {
-	ConnectAccepted(net.Conn) error
+	AddConnection(net.Conn) error
 }
 
 type ControllerManager interface {
-	ControllerCome(*Controller) <-chan error
+	ControllerEnter(*Controller) <-chan error
 	ControllerLeave(*Controller)
 }
