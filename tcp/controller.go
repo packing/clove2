@@ -136,6 +136,7 @@ func (controller *Controller) processRead() {
 
 	for {
 		n, err := controller.conn.Read(buf)
+		base.LogVerbose("Controller Read", n, err)
 		if err == nil && n > 0 {
 			atomic.AddInt64(&controller.totalRBytes, int64(n))
 		}

@@ -90,7 +90,7 @@ func (pool *StandardPool) AddConnection(conn net.Conn) error {
 		atomic.AddInt32(&pool.curr, 1)
 		atomic.AddInt64(&pool.total, 1)
 		if pool.curr > pool.top {
-			atomic.StoreInt32(&pool.curr, pool.curr)
+			atomic.StoreInt32(&pool.top, pool.curr)
 		}
 		base.LogVerbose("current/top/total: %d / %d / %d", pool.curr, pool.top, pool.total)
 
