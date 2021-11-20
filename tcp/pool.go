@@ -126,7 +126,7 @@ func (pool *StandardPool) Lookup() {
 			base.LogPanic(recover())
 		}()
 
-		for pool.closed {
+		for !pool.closed {
 			pool.controllers.Range(func(key, value interface{}) bool {
 				if value != nil {
 					c, ok := value.(*Controller)
