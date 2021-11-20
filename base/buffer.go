@@ -5,6 +5,15 @@ import (
 	"sync"
 )
 
+type Buffer interface {
+	Read([]byte) (int, error)
+	Next(int) ([]byte, int)
+	Peek(int) ([]byte, int)
+	Write([]byte) (int, error)
+	Reset()
+	Len() int
+}
+
 type SyncBuffer struct {
 	b  bytes.Buffer
 	rw sync.RWMutex
