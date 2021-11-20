@@ -92,6 +92,7 @@ func (pool *StandardPool) AddConnection(conn net.Conn) error {
 		if pool.curr > pool.top {
 			atomic.StoreInt32(&pool.curr, pool.curr)
 		}
+		base.LogVerbose("current/top/total: %d / %d / %d", pool.curr, pool.top, pool.total)
 
 		return nil
 	} else {
