@@ -14,7 +14,7 @@ type CloveId struct {
 }
 
 func (id CloveId) Integer() uint64 {
-	return uint64(id.a)<<48 | uint64(id.b)<<32 | uint64(id.c)<<16 | uint64(id.d)
+	return uint64(id.a|id.c)<<48 | uint64(id.b|id.d)<<32 | uint64(id.c)<<16 | uint64(id.d)
 }
 
 func (id CloveId) Data() []byte {
@@ -44,8 +44,8 @@ func (idGen *IdGenerator) NextId() <-chan CloveId {
 		var next = idGen.seed + 1
 		var pid = os.Getpid()
 		id.a = uint16(pid & 0xffff)
-		id.b = uint16(next & 0xffff)
-		id.c = uint16(pid >> 16)
+		id.b = uint16(pid >> 16)
+		id.c = uint16(next & 0xffff)
 		id.d = uint16(next >> 16)
 
 		iv <- id
@@ -63,8 +63,8 @@ func (idGen *IdGenerator) NextIdWithSeed(seed uint) <-chan CloveId {
 		var next = seed
 		var pid = os.Getpid()
 		id.a = uint16(pid & 0xffff)
-		id.b = uint16(next & 0xffff)
-		id.c = uint16(pid >> 16)
+		id.b = uint16(pid >> 16)
+		id.c = uint16(next & 0xffff)
 		id.d = uint16(next >> 16)
 
 		iv <- id
