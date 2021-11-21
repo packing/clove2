@@ -20,6 +20,7 @@ package codec
 import (
 	"encoding/binary"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/packing/clove2/errors"
@@ -466,6 +467,7 @@ var onceForCodecManagerSingleton sync.Once
 func GetCodecManager() *Manager {
 	onceForCodecManagerSingleton.Do(func() {
 		instCodecManager = &Manager{}
+		instCodecManager.mapCodecs = make(map[string]*Codec)
 		instCodecManager.AddCodec(&MemoryCodec)
 		instCodecManager.AddCodec(&CloveCodec)
 		instCodecManager.AddCodec(&JsonCodec)
@@ -474,11 +476,11 @@ func GetCodecManager() *Manager {
 }
 
 func (f *Manager) AddCodec(codec *Codec) {
-	f.mapCodecs[codec.Name] = codec
+	f.mapCodecs[strings.ToLower(codec.Name)] = codec
 }
 
 func (f Manager) FindCodec(name string) *Codec {
-	codec, ok := f.mapCodecs[name]
+	codec, ok := f.mapCodecs[strings.ToLower(name)]
 	if ok {
 		return codec
 	}
