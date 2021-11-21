@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+// @Title           json.go
+// @Description     Realize serialization and deserialization of JSON data and Golang data.
+// @Author          starlove
 package codec
 
 import (
@@ -22,14 +25,22 @@ import (
 	"encoding/json"
 )
 
+// DecoderJSONv1	Json data deserialization class
 type DecoderJSONv1 struct {
 }
 
+// EncoderJSONv1	Json data serialization class
 type EncoderJSONv1 struct {
 }
 
-func tsMap(m map[string]interface{}) IMMap {
-	rm := make(IMMap)
+var JsonCodec = Codec{Protocol: ProtocolJSON, Version: 1, Decoder: new(DecoderJSONv1), Encoder: new(EncoderJSONv1), Name: "JSON"}
+
+// @title           tsMap
+// @description     Convert the dictionary of string keys in Map to the dictionary of interface{} keys.
+// @auth            starlove
+// @param           m        map[string]interface{}         "Golang map-data deserialized from JSON"
+func tsMap(m map[string]interface{}) CloveMap {
+	rm := make(CloveMap)
 	for k, v := range m {
 		switch v.(type) {
 		case map[string]interface{}:
@@ -43,8 +54,12 @@ func tsMap(m map[string]interface{}) IMMap {
 	return rm
 }
 
-func tsSlice(s []interface{}) IMSlice {
-	rs := make(IMSlice, len(s))
+// @title           tsSlice
+// @description     Convert the dictionary of string keys in Slice to the dictionary of interface{} keys
+// @auth            starlove
+// @param           s        []interface{}         "Golang slice-data deserialized from JSON"
+func tsSlice(s []interface{}) CloveSlice {
+	rs := make(CloveSlice, len(s))
 	for i, v := range s {
 		switch v.(type) {
 		case map[string]interface{}:
@@ -58,8 +73,20 @@ func tsSlice(s []interface{}) IMSlice {
 	return rs
 }
 
-func (receiver *DecoderJSONv1) SetByteOrder(binary.ByteOrder) {}
-func (receiver DecoderJSONv1) Decode(raw []byte) (error, IMData, []byte) {
+// @title           SetByteOrder
+// @description     Just to implement a meaningless function of interface "Decoder".
+// @auth            starlove
+// @param           byteOrder    binary.ByteOrder	"Parameters that do not need to be passed"
+func (receiver *DecoderJSONv1) SetByteOrder(byteOrder binary.ByteOrder) {}
+
+// @title           Decode
+// @description     Deserialize from JSON string data to Clove data.
+// @auth            starlove
+// @param           raw 	[]byte	"JSON string data"
+// @return			error 		"Errors occurred during the process"
+// @return			CloveData 	"A complete Clove data decoded (if there are no errors)"
+// @return			[]byte 		"Remaining JSON string data (if the incoming JSON string data contains more than one data body)"
+func (receiver DecoderJSONv1) Decode(raw []byte) (error, CloveData, []byte) {
 	dst := make(map[string]interface{})
 	err := json.Unmarshal(raw, &dst)
 	if err != nil && err.Error() == "json: cannot unmarshal array into Go value of type map[string]interface {}" {
@@ -71,11 +98,19 @@ func (receiver DecoderJSONv1) Decode(raw []byte) (error, IMData, []byte) {
 	}
 }
 
+// @title           SetByteOrder
+// @description     Just to implement a meaningless function of interface "Decoder".
+// @auth            starlove
+// @param           byteOrder    binary.ByteOrder	"Parameters that do not need to be passed"
 func (receiver *EncoderJSONv1) SetByteOrder(binary.ByteOrder) {}
-func (receiver EncoderJSONv1) Encode(raw *IMData) (error, []byte) {
+
+// @title           Encode
+// @description     Serialize from Clove data to JSON string data.
+// @auth            starlove
+// @param           raw 	*CloveData	"Pointer of Clove data"
+// @return			error 		"Errors occurred during the process"
+// @return			[]byte 		"Final JSON string data (if there are no errors)"
+func (receiver EncoderJSONv1) Encode(raw *CloveData) (error, []byte) {
 	bs, err := json.Marshal(raw)
 	return err, bs
 }
-
-var codecJSONv1 = Codec{Protocol: ProtocolJSON, Version: 1, Decoder: new(DecoderJSONv1), Encoder: new(EncoderJSONv1), Name: "JSON"}
-var CodecJSON = &codecJSONv1

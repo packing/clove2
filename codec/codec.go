@@ -20,6 +20,7 @@ package codec
 import (
 	"encoding/binary"
 	"reflect"
+	"sync"
 
 	"github.com/packing/clove2/errors"
 )
@@ -31,19 +32,19 @@ const (
 	ProtocolReserved = 0xF
 )
 
-type IMData = interface{}
-type IMMap = map[IMData]IMData
-type IMStrMap = map[string]IMData
-type IMSlice = []IMData
+type CloveData = interface{}
+type CloveMap = map[CloveData]CloveData
+type CloveStrMap = map[string]CloveData
+type CloveSlice = []CloveData
 
 type Decoder interface {
 	SetByteOrder(binary.ByteOrder)
-	Decode([]byte) (error, IMData, []byte)
+	Decode([]byte) (error, CloveData, []byte)
 }
 
 type Encoder interface {
 	SetByteOrder(binary.ByteOrder)
-	Encode(*IMData) (error, []byte)
+	Encode(*CloveData) (error, []byte)
 }
 
 type Codec struct {
@@ -57,14 +58,14 @@ type Codec struct {
 type DecoderMemory struct{}
 
 func (receiver *DecoderMemory) SetByteOrder(binary.ByteOrder) {}
-func (receiver DecoderMemory) Decode(raw []byte) (error, IMData, []byte) {
+func (receiver DecoderMemory) Decode(raw []byte) (error, CloveData, []byte) {
 	return nil, raw, raw[len(raw):]
 }
 
 type EncoderMemory struct{}
 
 func (receiver *EncoderMemory) SetByteOrder(binary.ByteOrder) {}
-func (receiver EncoderMemory) Encode(raw *IMData) (error, []byte) {
+func (receiver EncoderMemory) Encode(raw *CloveData) (error, []byte) {
 	data, ok := (*raw).([]byte)
 	if !ok {
 		return errors.Errorf("Type is not supported"), nil
@@ -73,10 +74,10 @@ func (receiver EncoderMemory) Encode(raw *IMData) (error, []byte) {
 }
 
 type IMMapReader struct {
-	Map IMMap
+	Map CloveMap
 }
 
-func CreateMapReader(m IMMap) *IMMapReader {
+func CreateMapReader(m CloveMap) *IMMapReader {
 	mr := new(IMMapReader)
 	mr.Map = m
 	return mr
@@ -329,10 +330,10 @@ func (receiver IMMapReader) BoolValueOf(key interface{}) bool {
 }
 
 type IMSliceReader struct {
-	List IMSlice
+	List CloveSlice
 }
 
-func CreateSliceReader(m IMSlice) *IMSliceReader {
+func CreateSliceReader(m CloveSlice) *IMSliceReader {
 	mr := new(IMSliceReader)
 	mr.List = m
 	return mr
@@ -453,5 +454,33 @@ func (receiver IMSliceReader) BoolValueOf(index int) bool {
 	return reflect.ValueOf(v).Bool()
 }
 
-var codecMemory = Codec{Protocol: ProtocolMemory, Version: 1, Decoder: new(DecoderMemory), Encoder: new(EncoderMemory), Name: "二进制流"}
-var CodecMemory = &codecMemory
+var MemoryCodec = Codec{Protocol: ProtocolMemory, Version: 1, Decoder: new(DecoderMemory), Encoder: new(EncoderMemory), Name: "memory"}
+
+type Manager struct {
+	mapCodecs map[string]*Codec
+}
+
+var instCodecManager *Manager
+var onceForCodecManagerSingleton sync.Once
+
+func GetCodecManager() *Manager {
+	onceForCodecManagerSingleton.Do(func() {
+		instCodecManager = &Manager{}
+		instCodecManager.AddCodec(&MemoryCodec)
+		instCodecManager.AddCodec(&CloveCodec)
+		instCodecManager.AddCodec(&JsonCodec)
+	})
+	return instCodecManager
+}
+
+func (f *Manager) AddCodec(codec *Codec) {
+	f.mapCodecs[codec.Name] = codec
+}
+
+func (f Manager) FindCodec(name string) *Codec {
+	codec, ok := f.mapCodecs[name]
+	if ok {
+		return codec
+	}
+	return nil
+}

@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 
+// @Title           clove.go
+// @Description     Realize serialization and deserialization of Clove data and Golang data.
+// @Author          starlove
+
 package codec
 
 import (
@@ -63,18 +67,19 @@ const (
 	CloveDataTypeReserved = 18
 )
 
+// DecoderClove 	Clove data deserialization class
 type DecoderClove struct {
 	byteOrder binary.ByteOrder
 }
 
+// EncoderClove 	Clove data serialization class
 type EncoderClove struct {
 	byteOrder binary.ByteOrder
 }
 
-func calculateTypeSize(o interface{}) uint32 {
-	return uint32(reflect.TypeOf(o).Len())
-}
+var CloveCodec = Codec{Protocol: ProtocolClove, Version: 1, Decoder: new(DecoderClove), Encoder: new(EncoderClove), Name: "clove"}
 
+// calculateCloveTypeSize Calculates the length of memory needed to store the specified type of Clove data.
 func calculateCloveTypeSize(tp byte) uint32 {
 	switch tp {
 	case CloveDataTypeInt8:
@@ -102,6 +107,11 @@ func calculateCloveTypeSize(tp byte) uint32 {
 	}
 }
 
+// @title           makeHeader
+// @description     Calculates the length of memory needed to store the specified type of Clove data.
+// @auth            starlove
+// @param           tp        	byte         "Type of Clove data"
+// @return			uint32 		"The length of memory"
 func makeHeader(tp byte, lenSize byte) byte {
 	var h byte = 0x80
 	h |= tp & 0x1f
@@ -147,7 +157,7 @@ func (receiver DecoderClove) getByteOrder() binary.ByteOrder {
 	return receiver.byteOrder
 }
 
-func (receiver DecoderClove) Decode(raw []byte) (error, IMData, []byte) {
+func (receiver DecoderClove) Decode(raw []byte) (error, CloveData, []byte) {
 	defer func() {
 		base.LogPanic(recover())
 	}()
@@ -240,7 +250,7 @@ func (receiver DecoderClove) Decode(raw []byte) (error, IMData, []byte) {
 	case CloveDataTypeBytes:
 		return nil, realData[:elementCount], realData[elementCount:]
 	case CloveDataTypeMap:
-		var dstMap = make(IMMap, elementCount)
+		var dstMap = make(CloveMap, elementCount)
 		for i := 0; uint32(i) < elementCount; i++ {
 			err, kd, remain := receiver.Decode(realData)
 			if err != nil {
@@ -256,7 +266,7 @@ func (receiver DecoderClove) Decode(raw []byte) (error, IMData, []byte) {
 		}
 		return nil, dstMap, realData
 	case CloveDataTypeList:
-		var dstList = make(IMSlice, 0)
+		var dstList = make(CloveSlice, 0)
 		for i := 0; uint32(i) < elementCount; i++ {
 			err, vd, remain := receiver.Decode(realData)
 			if err != nil {
@@ -281,7 +291,7 @@ func (receiver EncoderClove) getByteOrder() binary.ByteOrder {
 	return receiver.byteOrder
 }
 
-func (receiver EncoderClove) Encode(raw *IMData) (error, []byte) {
+func (receiver EncoderClove) Encode(raw *CloveData) (error, []byte) {
 	defer func() {
 		base.LogPanic(recover())
 	}()
@@ -558,6 +568,3 @@ func (receiver IntermediateValue) Slice() []interface{} {
 	}
 	return s
 }
-
-var codecClove = Codec{Protocol: ProtocolClove, Version: 1, Decoder: new(DecoderClove), Encoder: new(EncoderClove), Name: "Clove-Protocol"}
-var CodecClove = &codecClove
