@@ -119,6 +119,7 @@ func (pool *StandardPool) ControllerLeave(controller *Controller) {
 
 func (pool *StandardPool) ControllerClosing(controller *Controller) {
 	go func() {
+		base.LogVerbose("ControllerClosing ", controller.GetId())
 		pool.chLookup <- controller.GetId()
 	}()
 }
@@ -138,6 +139,7 @@ func (pool *StandardPool) Lookup() {
 			if !ok {
 				break
 			}
+			base.LogVerbose("process ", id)
 			if id != nil {
 				ic, ok := pool.controllers.Load(id.Integer())
 				if ok {

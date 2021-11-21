@@ -134,6 +134,7 @@ func (controller *Controller) processRead() {
 	defer func() {
 		base.LogPanic(recover())
 	}()
+	controller.waitg.Add(1)
 
 	var buf = make([]byte, 512)
 
@@ -156,6 +157,7 @@ func (controller *Controller) processWrite() {
 	defer func() {
 		base.LogPanic(recover())
 	}()
+	controller.waitg.Add(1)
 
 	for {
 		isentBytes, ok := <-controller.queueSend
@@ -190,13 +192,14 @@ func (controller *Controller) processData() {
 	defer func() {
 		base.LogPanic(recover())
 	}()
+	controller.waitg.Add(1)
 
 	controller.waitg.Done()
 }
 
 func (controller *Controller) process() {
 	controller.waitg = new(sync.WaitGroup)
-	controller.waitg.Add(3)
 	go controller.processRead()
 	go controller.processWrite()
+	go controller.processData()
 }
