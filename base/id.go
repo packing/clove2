@@ -43,10 +43,10 @@ func (idGen *IdGenerator) NextId() <-chan CloveId {
 		var id = CloveId{}
 		var next = idGen.seed + 1
 		var pid = os.Getpid()
-		id.c = uint16(pid >> 16)
-		id.d = uint16(pid & 0xffff)
-		id.a = uint16(next >> 16)
+		id.a = uint16(pid & 0xffff)
 		id.b = uint16(next & 0xffff)
+		id.c = uint16(pid >> 16)
+		id.d = uint16(next >> 16)
 
 		iv <- id
 	}()
@@ -62,10 +62,10 @@ func (idGen *IdGenerator) NextIdWithSeed(seed uint) <-chan CloveId {
 		var id = CloveId{}
 		var next = seed
 		var pid = os.Getpid()
-		id.c = uint16(pid >> 16)
-		id.d = uint16(pid & 0xffff)
-		id.a = uint16(next >> 16)
+		id.a = uint16(pid & 0xffff)
 		id.b = uint16(next & 0xffff)
+		id.c = uint16(pid >> 16)
+		id.d = uint16(next >> 16)
 
 		iv <- id
 	}()
