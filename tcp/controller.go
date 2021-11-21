@@ -101,6 +101,7 @@ func (controller Controller) GetTotalSentPackets() int64 {
 func (controller *Controller) Close() {
 	if controller.flag == cFlagOpened {
 		controller.flag = cFlagClosing
+		controller.manager.ControllerClosing(controller)
 	}
 }
 
