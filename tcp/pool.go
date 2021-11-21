@@ -43,8 +43,6 @@ type StandardPool struct {
 	curr  int32
 	total int64
 
-	closed bool
-
 	controllers *sync.Map
 
 	waitg *sync.WaitGroup
@@ -135,9 +133,12 @@ func (pool *StandardPool) Lookup() {
 			base.LogPanic(recover())
 		}()
 
-		for !pool.closed {
+		for {
 			id, ok := <-pool.chLookup
-			if ok && id != nil {
+			if !ok {
+				break
+			}
+			if id != nil {
 				ic, ok := pool.controllers.Load(id.Integer())
 				if ok {
 					c, ok := ic.(*Controller)
@@ -155,7 +156,7 @@ func (pool *StandardPool) Lookup() {
 }
 
 func (pool *StandardPool) Close() {
-	pool.closed = true
+	close(pool.chLookup)
 	pool.waitg.Wait()
 
 	pool.controllers.Range(func(key, value interface{}) bool {
