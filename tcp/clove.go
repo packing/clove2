@@ -24,7 +24,7 @@ type ClovePacketPackager struct {
 }
 
 var ClovePacketFormat = PacketFormat{
-	"Clove",
+	"clove",
 	0,
 	"binary",
 	&ClovePacketParser{},
