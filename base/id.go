@@ -14,7 +14,7 @@ type CloveId struct {
 }
 
 func (id CloveId) Integer() uint64 {
-	return uint64(id.a|id.d)<<48 | uint64(id.b|id.c)<<32 | uint64(id.c)<<16 | uint64(id.d)
+	return uint64(id.a)<<48 | uint64(id.b)<<32 | uint64(id.c)<<16 | uint64(id.d)
 }
 
 func (id CloveId) Data() []byte {
