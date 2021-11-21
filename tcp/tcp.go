@@ -26,7 +26,9 @@ type ConnectionProcessor interface {
 }
 
 type ControllerManager interface {
+	GetPacketFormat() *PacketFormat
 	ControllerEnter(*Controller) <-chan error
 	ControllerLeave(*Controller)
 	ControllerClosing(*Controller)
+	PushPackets(...Packet)
 }

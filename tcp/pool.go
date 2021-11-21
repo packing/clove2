@@ -26,14 +26,13 @@ import (
 	"sync/atomic"
 
 	"github.com/packing/clove2/base"
-	"github.com/packing/clove2/codec"
 	"github.com/packing/clove2/errors"
 )
 
 // StandardPool           TCP-StandardPool class
 type StandardPool struct {
-	byteOrder binary.ByteOrder
-	Codec     *codec.Codec
+	byteOrder    binary.ByteOrder
+	packetFormat *PacketFormat
 
 	OnControllerEnter func(*Controller) error
 	OnControllerLeave func(*Controller)
@@ -49,29 +48,36 @@ type StandardPool struct {
 	mutex sync.Mutex
 
 	chLookup chan *base.CloveId
+
+	pcks base.ChannelQueue
 }
 
 // Create a default tcp StandardPool instance.
-func CreateStandardPool() *StandardPool {
+func CreateStandardPool(pf string) *StandardPool {
 	p := new(StandardPool)
-	p.controllers = new(sync.Map)
+	p.packetFormat = GetPacketFormatManager().FindPacketFormat(pf)
+	if p.packetFormat == nil {
+		base.LogError("The specified packet format '%s' is not supported", pf)
+		return nil
+	}
 	p.limit = -1
+	p.controllers = new(sync.Map)
 	p.waitg = new(sync.WaitGroup)
 	p.chLookup = make(chan *base.CloveId)
+	p.pcks = make(base.ChannelQueue, 4096)
 	return p
 }
 
 // Create a StandardPool instance that supports a maximum of n controllers.
-func CreateStandardPoolWithLimit(n int) *StandardPool {
-	p := CreateStandardPool()
+func CreateStandardPoolWithLimit(pf string, n int) *StandardPool {
+	p := CreateStandardPool(pf)
 	p.limit = n
 	return p
 }
 
 // Create a StandardPool instance that supports up to n controllers and parses data using byte order b
-func CreateStandardPoolWithByteOrder(b binary.ByteOrder, n int) *StandardPool {
-	p := CreateStandardPool()
-	p.limit = n
+func CreateStandardPoolWithByteOrder(pf string, b binary.ByteOrder, n int) *StandardPool {
+	p := CreateStandardPoolWithLimit(pf, n)
 	p.byteOrder = b
 	return p
 }
@@ -119,7 +125,6 @@ func (pool *StandardPool) ControllerLeave(controller *Controller) {
 
 func (pool *StandardPool) ControllerClosing(controller *Controller) {
 	go func() {
-		base.LogVerbose("ControllerClosing ", controller.GetId())
 		pool.chLookup <- controller.GetId()
 	}()
 }
@@ -139,7 +144,6 @@ func (pool *StandardPool) Lookup() {
 			if !ok {
 				break
 			}
-			base.LogVerbose("process ", id)
 			if id != nil {
 				ic, ok := pool.controllers.Load(id.Integer())
 				if ok {
@@ -175,4 +179,16 @@ func (pool *StandardPool) CloseController(id *base.CloveId) {
 			c.Close()
 		}
 	}
+}
+
+func (pool *StandardPool) PushPackets(pcks ...Packet) {
+	go func() {
+		for _, pck := range pcks {
+			pool.pcks <- pck
+		}
+	}()
+}
+
+func (pool *StandardPool) GetPacketFormat() *PacketFormat {
+	return pool.packetFormat
 }

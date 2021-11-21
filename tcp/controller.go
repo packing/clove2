@@ -36,10 +36,12 @@ type Controller struct {
 	totalSBytes int64
 	totalRPcks  int64
 	totalSPcks  int64
+	packetFmt   *PacketFormat
 	manager     ControllerManager
 	waitg       *sync.WaitGroup
 	queueSend   base.ChannelQueue
 	bufRecv     *base.SyncBuffer
+	chReceived  base.ChannelQueue
 }
 
 const (
@@ -63,9 +65,11 @@ func CreateController(conn net.Conn, m ControllerManager) *Controller {
 	c.sessionId, ok = <-base.GetIdGenerator().NextIdWithSeed(seed)
 	c.conn = conn
 	c.manager = m
+	c.packetFmt = c.manager.GetPacketFormat()
 	c.flag = cFlagOpened
 	c.queueSend = make(base.ChannelQueue)
 	c.bufRecv = new(base.SyncBuffer)
+	c.chReceived = make(base.ChannelQueue)
 	c.process()
 	return c
 }
@@ -107,14 +111,12 @@ func (controller *Controller) Close() {
 
 func (controller *Controller) CheckAlive() bool {
 	if controller.flag == cFlagClosing {
-
-		controller.queueSend.Close()
-		controller.waitg.Wait()
-
 		controller.manager.ControllerLeave(controller)
 		_ = controller.conn.Close()
+		controller.queueSend.Close()
+		controller.chReceived.Close()
+		controller.waitg.Wait()
 		controller.flag = cFlagClosed
-
 		return false
 	}
 	return controller.flag == cFlagOpened
@@ -143,6 +145,7 @@ func (controller *Controller) processRead() {
 		if err == nil && n > 0 {
 			_, err = controller.bufRecv.Write(buf)
 			atomic.AddInt64(&controller.totalRBytes, int64(n))
+			controller.chReceived <- n
 		}
 		if err != nil || n == 0 {
 			controller.Close()
@@ -193,6 +196,23 @@ func (controller *Controller) processData() {
 		base.LogPanic(recover())
 	}()
 	controller.waitg.Add(1)
+
+	for {
+		iReceived, ok := <-controller.chReceived
+		if !ok {
+			break
+		}
+		nReceived, ok := iReceived.(int)
+		if !ok || nReceived == 0 {
+			continue
+		}
+		err, pcks := controller.packetFmt.Parser.ParseFromBuffer(controller.bufRecv)
+		if err != nil {
+			controller.Close()
+			break
+		}
+		controller.manager.PushPackets(pcks...)
+	}
 
 	controller.waitg.Done()
 }
