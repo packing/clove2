@@ -28,4 +28,5 @@ type ConnectionProcessor interface {
 type ControllerManager interface {
 	ControllerEnter(*Controller) <-chan error
 	ControllerLeave(*Controller)
+	ControllerClosing(*Controller)
 }

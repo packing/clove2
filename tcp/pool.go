@@ -49,6 +49,8 @@ type StandardPool struct {
 
 	waitg *sync.WaitGroup
 	mutex sync.Mutex
+
+	chLookup chan *base.CloveId
 }
 
 // Create a default tcp StandardPool instance.
@@ -57,6 +59,7 @@ func CreateStandardPool() *StandardPool {
 	p.controllers = new(sync.Map)
 	p.limit = -1
 	p.waitg = new(sync.WaitGroup)
+	p.chLookup = make(chan *base.CloveId)
 	return p
 }
 
@@ -116,6 +119,12 @@ func (pool *StandardPool) ControllerLeave(controller *Controller) {
 	}
 }
 
+func (pool *StandardPool) ControllerClosing(controller *Controller) {
+	go func() {
+		pool.chLookup <- controller.GetId()
+	}()
+}
+
 func (pool *StandardPool) Lookup() {
 	pool.waitg.Add(1)
 
@@ -127,19 +136,19 @@ func (pool *StandardPool) Lookup() {
 		}()
 
 		for !pool.closed {
-			pool.controllers.Range(func(key, value interface{}) bool {
-				if value != nil {
-					c, ok := value.(*Controller)
+			id, ok := <-pool.chLookup
+			if ok && id != nil {
+				ic, ok := pool.controllers.Load(id.Integer())
+				if ok {
+					c, ok := ic.(*Controller)
 					if ok && c != nil {
 						if !c.CheckAlive() {
-							pool.controllers.Delete(key)
+							pool.controllers.Delete(id.Integer())
 							atomic.AddInt32(&pool.curr, -1)
 						}
-						return true
 					}
 				}
-				return false
-			})
+			}
 		}
 
 	}()
@@ -155,7 +164,7 @@ func (pool *StandardPool) Close() {
 	})
 }
 
-func (pool *StandardPool) CloseController(id base.CloveId) {
+func (pool *StandardPool) CloseController(id *base.CloveId) {
 	ic, ok := pool.controllers.Load(id.Integer())
 	if ok && ic != nil {
 		c, ok := ic.(*Controller)

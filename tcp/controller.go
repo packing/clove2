@@ -38,7 +38,8 @@ type Controller struct {
 	totalSPcks  int64
 	manager     ControllerManager
 	waitg       *sync.WaitGroup
-	queueSent   base.ChannelQueue
+	queueSend   base.ChannelQueue
+	bufRecv     *base.SyncBuffer
 }
 
 const (
@@ -63,13 +64,14 @@ func CreateController(conn net.Conn, m ControllerManager) *Controller {
 	c.conn = conn
 	c.manager = m
 	c.flag = cFlagOpened
-	c.queueSent = make(base.ChannelQueue)
+	c.queueSend = make(base.ChannelQueue)
+	c.bufRecv = new(base.SyncBuffer)
 	c.process()
 	return c
 }
 
-func (controller *Controller) GetId() base.CloveId {
-	return controller.sessionId
+func (controller *Controller) GetId() *base.CloveId {
+	return &controller.sessionId
 }
 
 func (controller *Controller) GetRemoteHostName() string {
@@ -105,7 +107,7 @@ func (controller *Controller) Close() {
 func (controller *Controller) CheckAlive() bool {
 	if controller.flag == cFlagClosing {
 
-		controller.queueSent.Close()
+		controller.queueSend.Close()
 		controller.waitg.Wait()
 
 		controller.manager.ControllerLeave(controller)
@@ -122,7 +124,7 @@ func (controller Controller) SendBytes(sentBytes []byte) bool {
 		return false
 	}
 
-	go func() { controller.queueSent <- sentBytes }()
+	go func() { controller.queueSend <- sentBytes }()
 
 	return true
 }
@@ -136,8 +138,8 @@ func (controller *Controller) processRead() {
 
 	for {
 		n, err := controller.conn.Read(buf)
-		base.LogVerbose("Controller Read", n, err)
 		if err == nil && n > 0 {
+			_, err = controller.bufRecv.Write(buf)
 			atomic.AddInt64(&controller.totalRBytes, int64(n))
 		}
 		if err != nil || n == 0 {
@@ -155,7 +157,7 @@ func (controller *Controller) processWrite() {
 	}()
 
 	for {
-		isentBytes, ok := <-controller.queueSent
+		isentBytes, ok := <-controller.queueSend
 		if ok {
 			sentBytes, ok := isentBytes.([]byte)
 			if ok {
@@ -183,9 +185,17 @@ func (controller *Controller) processWrite() {
 	controller.waitg.Done()
 }
 
+func (controller *Controller) processData() {
+	defer func() {
+		base.LogPanic(recover())
+	}()
+
+	controller.waitg.Done()
+}
+
 func (controller *Controller) process() {
 	controller.waitg = new(sync.WaitGroup)
-	controller.waitg.Add(2)
+	controller.waitg.Add(3)
 	go controller.processRead()
 	go controller.processWrite()
 }
