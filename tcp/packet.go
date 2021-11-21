@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/packing/clove2/base"
@@ -71,17 +72,18 @@ var onceForFormatManagerSingleton sync.Once
 func GetPacketFormatManager() *PacketFormatManager {
 	onceForFormatManagerSingleton.Do(func() {
 		instFormatManager = &PacketFormatManager{}
+		instFormatManager.mapFormats = make(map[string]*PacketFormat)
 		instFormatManager.AddPacketFormat(&ClovePacketFormat)
 	})
 	return instFormatManager
 }
 
 func (f *PacketFormatManager) AddPacketFormat(format *PacketFormat) {
-	f.mapFormats[format.Tag] = format
+	f.mapFormats[strings.ToLower(format.Tag)] = format
 }
 
 func (f PacketFormatManager) FindPacketFormat(tag string) *PacketFormat {
-	format, ok := f.mapFormats[tag]
+	format, ok := f.mapFormats[strings.ToLower(tag)]
 	if ok {
 		return format
 	}
