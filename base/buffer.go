@@ -14,7 +14,43 @@ type Buffer interface {
 	Len() int
 }
 
-type StandardBuffer bytes.Buffer
+type StandardBuffer struct {
+	b bytes.Buffer
+}
+
+func (b *StandardBuffer) Read(p []byte) (int, error) {
+	return b.b.Read(p)
+}
+
+func (b *StandardBuffer) Next(n int) ([]byte, int) {
+	var sn = n
+	var bl = b.b.Len()
+	if bl < n {
+		sn = bl
+	}
+	return b.b.Next(sn), sn
+}
+
+func (b *StandardBuffer) Peek(n int) ([]byte, int) {
+	var sn = n
+	var bl = b.b.Len()
+	if bl < n {
+		sn = bl
+	}
+	return b.b.Bytes()[:sn], sn
+}
+
+func (b *StandardBuffer) Write(p []byte) (int, error) {
+	return b.b.Write(p)
+}
+
+func (b *StandardBuffer) Reset() {
+	b.b.Reset()
+}
+
+func (b *StandardBuffer) Len() int {
+	return b.b.Len()
+}
 
 type SyncBuffer struct {
 	b  bytes.Buffer
