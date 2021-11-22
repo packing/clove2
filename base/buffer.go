@@ -14,6 +14,8 @@ type Buffer interface {
 	Len() int
 }
 
+type StandardBuffer bytes.Buffer
+
 type SyncBuffer struct {
 	b  bytes.Buffer
 	rw sync.RWMutex
