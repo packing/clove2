@@ -235,7 +235,7 @@ func (controller *Controller) processRead() {
 	for {
 		n, err := controller.conn.Read(buf)
 		if err == nil && n > 0 {
-			_, err = controller.bufRecv.Write(buf)
+			_, err = controller.bufRecv.Write(buf[:n])
 			if err != nil {
 				controller.Close()
 				break
