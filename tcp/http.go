@@ -90,7 +90,7 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 		err, pck, n := p.ParseFromBytes(in)
 		if err != nil {
 			if err.Error() != ErrorDataNotReady {
-				return errors.New(ErrorDataIsDamage), nil
+				return err, nil
 			}
 			break
 		}
