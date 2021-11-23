@@ -308,6 +308,7 @@ func (controller *Controller) processData() {
 		}
 		pckReceived, ok := iReceived.(Packet)
 		if !ok || pckReceived == nil {
+			base.LogVerbose("A error value [%s] on [processData].", iReceived)
 			continue
 		}
 
