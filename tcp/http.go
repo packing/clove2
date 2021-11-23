@@ -60,7 +60,6 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 		if n < HttpHeaderMinLength {
 			break
 		}
-		base.LogVerbose("peekData >>", n)
 
 		fB := base.ReadAsciiCode(peekData)
 		if fB != 71 && fB != 80 {
@@ -93,6 +92,7 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 		}
 
 		if b.Len() < lengthTotal {
+			base.LogVerbose("Data length not ready >> %d < %d", b.Len(), lengthTotal)
 			break
 		}
 
