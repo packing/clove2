@@ -152,6 +152,7 @@ func (controller *Controller) setDataReceivedFlag() {
 func (controller *Controller) setReadyedFlag() {
 	if base.TestMask(controller.flag, cFlagOpened) && !base.TestMask(controller.flag, cFlagReadyed) {
 		controller.flag |= cFlagReadyed
+		base.LogVerbose("Determine PacketFormat => %s", controller.packetFmt.Tag)
 	}
 }
 

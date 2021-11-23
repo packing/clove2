@@ -19,9 +19,9 @@ type HTTPPacketPackager struct {
 }
 
 var HTTPPacketFormat = PacketFormat{
-	"clove",
+	"http",
 	0,
-	"binary",
+	"http",
 	&HTTPPacketParser{},
 	&HTTPPacketPackager{},
 }
