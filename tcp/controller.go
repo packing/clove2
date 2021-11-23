@@ -132,6 +132,7 @@ func (controller *Controller) parsePacket() error {
 		if err != nil {
 			return err
 		}
+		base.LogVerbose("A packet parsed with [%s].", controller.packetFmt.Tag)
 		controller.ReceivePackets(pcks...)
 	} else {
 		controller.packetFmt = GetPacketFormatManager().DetermineFromBuffer(controller.bufRecv)
