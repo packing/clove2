@@ -50,7 +50,7 @@ type StandardPool struct {
 	mutex sync.Mutex
 
 	chEmergency chan *base.CloveId
-	timerCheck  *time.Timer
+	bChecking   bool
 }
 
 // Create a default tcp StandardPool instance.
@@ -61,7 +61,7 @@ func CreateStandardPool(pf string) *StandardPool {
 	p.controllers = new(sync.Map)
 	p.waitg = new(sync.WaitGroup)
 	p.chEmergency = make(chan *base.CloveId)
-	p.timerCheck = time.NewTimer(time.Millisecond * 100)
+	p.bChecking = true
 	return p
 }
 
@@ -133,13 +133,9 @@ func (pool *StandardPool) CheckControllers() {
 	}()
 
 	pool.waitg.Add(1)
-	for {
-		_, ok := <-pool.timerCheck.C
-		if !ok {
-			break
-		}
+	for pool.bChecking {
+		<-time.After(time.Millisecond * 5)
 		base.LogVerbose("CheckControllers")
-
 		pool.controllers.Range(func(key, value interface{}) bool {
 			c, ok := value.(*Controller)
 			if ok && c != nil {
@@ -191,7 +187,7 @@ func (pool *StandardPool) Lookup() {
 }
 
 func (pool *StandardPool) Close() {
-	pool.timerCheck.Stop()
+	pool.bChecking = false
 	close(pool.chEmergency)
 	pool.waitg.Wait()
 	pool.controllers.Range(func(key, value interface{}) bool {
