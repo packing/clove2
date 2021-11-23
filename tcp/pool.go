@@ -57,10 +57,6 @@ type StandardPool struct {
 func CreateStandardPool(pf string) *StandardPool {
 	p := new(StandardPool)
 	p.packetFormat = GetPacketFormatManager().FindPacketFormat(pf)
-	if p.packetFormat == nil {
-		base.LogError("The specified packet format '%s' is not supported", pf)
-		return nil
-	}
 	p.limit = -1
 	p.controllers = new(sync.Map)
 	p.waitg = new(sync.WaitGroup)
