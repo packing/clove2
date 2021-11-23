@@ -49,8 +49,8 @@ type StandardPool struct {
 	waitg *sync.WaitGroup
 	mutex sync.Mutex
 
-	chEmergency chan *base.CloveId
-	bChecking   bool
+	chEmergency   chan *base.CloveId
+	timerChecking *time.Timer
 }
 
 // Create a default tcp StandardPool instance.
@@ -61,7 +61,7 @@ func CreateStandardPool(pf string) *StandardPool {
 	p.controllers = new(sync.Map)
 	p.waitg = new(sync.WaitGroup)
 	p.chEmergency = make(chan *base.CloveId)
-	p.bChecking = true
+	p.timerChecking = time.NewTimer(time.Millisecond * 500)
 	return p
 }
 
@@ -133,8 +133,11 @@ func (pool *StandardPool) CheckControllers() {
 	}()
 
 	pool.waitg.Add(1)
-	for pool.bChecking {
-		<-time.After(time.Millisecond * 500)
+	for {
+		<-pool.timerChecking.C
+		if !pool.timerChecking.Reset(time.Millisecond * 500) {
+			break
+		}
 		pool.controllers.Range(func(key, value interface{}) bool {
 			c, ok := value.(*Controller)
 			if ok && c != nil {
@@ -186,7 +189,8 @@ func (pool *StandardPool) Lookup() {
 }
 
 func (pool *StandardPool) Close() {
-	pool.bChecking = false
+	pool.timerChecking.Reset(time.Millisecond)
+	pool.timerChecking.Stop()
 	close(pool.chEmergency)
 	pool.waitg.Wait()
 	pool.controllers.Range(func(key, value interface{}) bool {
