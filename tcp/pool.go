@@ -135,9 +135,7 @@ func (pool *StandardPool) CheckControllers() {
 	pool.waitg.Add(1)
 	for {
 		<-pool.timerChecking.C
-		if !pool.timerChecking.Reset(time.Millisecond * 500) {
-			break
-		}
+		pool.timerChecking.Reset(time.Millisecond * 500)
 		pool.controllers.Range(func(key, value interface{}) bool {
 			c, ok := value.(*Controller)
 			if ok && c != nil {
@@ -189,8 +187,9 @@ func (pool *StandardPool) Lookup() {
 }
 
 func (pool *StandardPool) Close() {
-	pool.timerChecking.Reset(time.Millisecond)
+	//pool.timerChecking.Reset(time.Millisecond)
 	pool.timerChecking.Stop()
+	pool.timerChecking.Reset(0)
 	close(pool.chEmergency)
 	pool.waitg.Wait()
 	pool.controllers.Range(func(key, value interface{}) bool {
