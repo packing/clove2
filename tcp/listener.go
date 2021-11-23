@@ -38,7 +38,7 @@ func CreateListener() *Listener {
 	return listener
 }
 
-func (listener Listener) Start(addr string, processor ConnectionProcessor) error {
+func (listener Listener) Start(addr string, processor ConnectionProcessor, packetProcessor PacketProcessor) error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return err
@@ -57,7 +57,7 @@ func (listener Listener) Start(addr string, processor ConnectionProcessor) error
 		for {
 			conn, err := listener.l.Accept()
 			if err == nil {
-				err = processor.AddConnection(conn)
+				err = processor.AddConnection(conn, packetProcessor)
 				if err != nil {
 					base.LogWarn("Failed to accept connection. error: %s", err.Error())
 					_ = conn.Close()

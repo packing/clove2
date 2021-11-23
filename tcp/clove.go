@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"bytes"
 	"encoding/binary"
 
 	"github.com/packing/clove2/base"
@@ -41,11 +42,12 @@ func (p *ClovePacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 	}
 
 	peekData := in
-	opFlag := peekData[0]
+	opFlag := int(peekData[0])
 	mask := opFlag & MaskCloveFeature
 	packetLen := binary.BigEndian.Uint32(peekData[1:PacketCloveHeaderLength])
 	ptop := byte((packetLen & 0xF0000000) >> 28)
 	ptov := byte((packetLen & 0xF000000) >> 24)
+
 	packetLen = packetLen & PacketMaxLength
 
 	if ptop == 0 || ptov == 0 {
@@ -65,9 +67,9 @@ func (p *ClovePacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 	}
 
 	packet := new(BinaryPacket)
-	packet.Compressed = (opFlag & MaskCloveCompressed) == MaskCloveCompressed
-	packet.Encrypted = (opFlag & MaskCloveEncrypt) == MaskCloveEncrypt
-	packet.CompressSupport = (opFlag & MaskCloveCompressSupport) == MaskCloveCompressSupport
+	packet.Compressed = base.TestMask(opFlag, MaskCloveCompressed)
+	packet.Encrypted = base.TestMask(opFlag, MaskCloveEncrypt)
+	packet.CompressSupport = base.TestMask(opFlag, MaskCloveCompressSupport)
 	packet.ProtocolType = ptop
 	packet.ProtocolVer = ptov
 	packet.Raw = peekData[PacketCloveHeaderLength:packetLen]
@@ -102,6 +104,11 @@ func (p *ClovePacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 		}
 
 		err, pck, _ := p.ParseFromBytes(in)
+
+		if err != nil {
+			return err, pcks
+		}
+
 		if err.Error() == ErrorDataNotReady {
 			return nil, pcks
 		}
@@ -111,7 +118,81 @@ func (p *ClovePacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 
 }
 
-func (p *ClovePacketPackager) Package(in []byte) (error, Packet, []byte) {
+func (p *ClovePacketParser) TestMatchScore(b base.Buffer) int {
+	defer func() {
+		base.LogPanic(recover())
+	}()
 
-	return nil, nil, nil
+	score := -1
+
+	l := b.Len()
+	peekData, n := b.Peek(PacketCloveHeaderLength)
+	if n < PacketCloveHeaderLength {
+		return score
+	}
+
+	opFlag := int(peekData[0])
+	mask := opFlag & MaskCloveFeature
+	packetLen := int(binary.BigEndian.Uint32(peekData[1:PacketCloveHeaderLength]))
+	ptop := byte((packetLen & 0xF0000000) >> 28)
+	ptov := byte((packetLen & 0xF000000) >> 24)
+
+	packetLen = packetLen & PacketMaxLength
+
+	if ptop == 0 || ptov == 0 {
+		return score
+	}
+
+	if packetLen > PacketMaxLength || packetLen < PacketCloveHeaderLength {
+		return score
+	}
+
+	if mask != MaskCloveFeature {
+		return score
+	}
+
+	if packetLen > l {
+		score = 50
+	} else {
+		score = 99
+	}
+
+	return score
+}
+
+func (p *ClovePacketPackager) Package(dst Packet, in []byte) (error, []byte) {
+	defer func() {
+		base.LogPanic(recover())
+	}()
+
+	header := make([]byte, PacketCloveHeaderLength)
+
+	if dst.GetType() != "binary" {
+		return errors.New(ErrorPacketUnsupported), in
+	}
+
+	pck, ok := dst.(*BinaryPacket)
+	if !ok {
+		return errors.New(ErrorPacketUnsupported), in
+	}
+
+	var opFlag byte = 0
+	if pck.Compressed {
+		opFlag |= MaskCloveCompressed
+	}
+	if pck.CompressSupport {
+		opFlag |= MaskCloveCompressSupport
+	}
+	if pck.Encrypted {
+		opFlag |= MaskCloveEncrypt
+	}
+
+	header[0] = MaskCloveFeature | opFlag
+
+	packetLen := uint32(len(in)) + PacketCloveHeaderLength
+	ptoInfo := uint32((pck.ProtocolType<<4)|pck.ProtocolVer) << 24
+	packetLen |= ptoInfo
+	binary.BigEndian.PutUint32(header[1:], packetLen)
+
+	return nil, bytes.Join([][]byte{header, in}, []byte(""))
 }

@@ -22,13 +22,14 @@ package tcp
 import "net"
 
 type ConnectionProcessor interface {
-	AddConnection(net.Conn) error
+	AddConnection(net.Conn, PacketProcessor) error
 }
 
 type ControllerManager interface {
 	GetPacketFormat() *PacketFormat
+	GetPacketProcessor() PacketProcessor
+	SetPacketProcessor(PacketProcessor)
 	ControllerEnter(*Controller) <-chan error
 	ControllerLeave(*Controller)
 	ControllerClosing(*Controller)
-	PushPackets(...Packet)
 }

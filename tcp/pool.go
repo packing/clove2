@@ -24,6 +24,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/packing/clove2/base"
 	"github.com/packing/clove2/errors"
@@ -31,8 +32,9 @@ import (
 
 // StandardPool           TCP-StandardPool class
 type StandardPool struct {
-	byteOrder    binary.ByteOrder
-	packetFormat *PacketFormat
+	byteOrder       binary.ByteOrder
+	packetFormat    *PacketFormat
+	packetProcessor PacketProcessor
 
 	OnControllerEnter func(*Controller) error
 	OnControllerLeave func(*Controller)
@@ -47,9 +49,8 @@ type StandardPool struct {
 	waitg *sync.WaitGroup
 	mutex sync.Mutex
 
-	chLookup chan *base.CloveId
-
-	pcks base.ChannelQueue
+	chEmergency chan *base.CloveId
+	timerCheck  *time.Timer
 }
 
 // Create a default tcp StandardPool instance.
@@ -63,8 +64,8 @@ func CreateStandardPool(pf string) *StandardPool {
 	p.limit = -1
 	p.controllers = new(sync.Map)
 	p.waitg = new(sync.WaitGroup)
-	p.chLookup = make(chan *base.CloveId)
-	p.pcks = make(base.ChannelQueue, 4096)
+	p.chEmergency = make(chan *base.CloveId)
+	p.timerCheck = time.NewTimer(time.Millisecond * 100)
 	return p
 }
 
@@ -82,9 +83,9 @@ func CreateStandardPoolWithByteOrder(pf string, b binary.ByteOrder, n int) *Stan
 	return p
 }
 
-func (pool *StandardPool) AddConnection(conn net.Conn) error {
+func (pool *StandardPool) AddConnection(conn net.Conn, packetProcessor PacketProcessor) error {
 	if pool.limit <= 0 || pool.curr < int32(pool.limit) {
-		c := CreateController(conn, pool)
+		c := CreateController(conn, pool, packetProcessor)
 		if c == nil {
 			return errors.New("Failed to create controller.")
 		}
@@ -125,46 +126,77 @@ func (pool *StandardPool) ControllerLeave(controller *Controller) {
 
 func (pool *StandardPool) ControllerClosing(controller *Controller) {
 	go func() {
-		pool.chLookup <- controller.GetId()
+		pool.chEmergency <- controller.GetId()
 	}()
 }
 
-func (pool *StandardPool) Lookup() {
+func (pool *StandardPool) CheckControllers() {
+	defer func() {
+		pool.waitg.Done()
+		base.LogPanic(recover())
+	}()
+
+	pool.waitg.Add(1)
+	for {
+		_, ok := <-pool.timerCheck.C
+		if !ok {
+			break
+		}
+
+		pool.controllers.Range(func(key, value interface{}) bool {
+			c, ok := value.(*Controller)
+			if ok && c != nil {
+				c.CheckTimeout()
+			}
+			return true
+		})
+	}
+
+}
+
+func (pool *StandardPool) EmergencyMonitor() {
+	defer func() {
+		pool.waitg.Done()
+		base.LogPanic(recover())
+	}()
+
 	pool.waitg.Add(1)
 
-	go func() {
+	for {
 
-		defer func() {
-			pool.waitg.Done()
-			base.LogPanic(recover())
-		}()
+		id, ok := <-pool.chEmergency
+		if !ok {
+			break
+		}
+		if id == nil {
+			continue
+		}
 
-		for {
-			id, ok := <-pool.chLookup
-			if !ok {
-				break
-			}
-			if id != nil {
-				ic, ok := pool.controllers.Load(id.Integer())
-				if ok {
-					c, ok := ic.(*Controller)
-					if ok && c != nil {
-						if !c.CheckAlive() {
-							pool.controllers.Delete(id.Integer())
-							atomic.AddInt32(&pool.curr, -1)
-						}
-					}
-				}
+		ic, ok := pool.controllers.Load(id.Integer())
+		if !ok {
+			continue
+		}
+
+		c, ok := ic.(*Controller)
+		if ok && c != nil {
+			if !c.CheckAlive() {
+				pool.controllers.Delete(id.Integer())
+				atomic.AddInt32(&pool.curr, -1)
 			}
 		}
 
-	}()
+	}
+}
+
+func (pool *StandardPool) Lookup() {
+	go pool.CheckControllers()
+	go pool.EmergencyMonitor()
 }
 
 func (pool *StandardPool) Close() {
-	close(pool.chLookup)
+	pool.timerCheck.Stop()
+	close(pool.chEmergency)
 	pool.waitg.Wait()
-
 	pool.controllers.Range(func(key, value interface{}) bool {
 		pool.controllers.Delete(key)
 		return true
@@ -181,14 +213,14 @@ func (pool *StandardPool) CloseController(id *base.CloveId) {
 	}
 }
 
-func (pool *StandardPool) PushPackets(pcks ...Packet) {
-	go func() {
-		for _, pck := range pcks {
-			pool.pcks <- pck
-		}
-	}()
-}
-
 func (pool *StandardPool) GetPacketFormat() *PacketFormat {
 	return pool.packetFormat
+}
+
+func (pool *StandardPool) GetPacketProcessor() PacketProcessor {
+	return pool.packetProcessor
+}
+
+func (pool *StandardPool) SetPacketProcessor(pp PacketProcessor) {
+	pool.packetProcessor = pp
 }
