@@ -134,7 +134,7 @@ func (pool *StandardPool) CheckControllers() {
 
 	pool.waitg.Add(1)
 	for pool.bChecking {
-		<-time.After(time.Millisecond * 300)
+		<-time.After(time.Millisecond * 500)
 		pool.controllers.Range(func(key, value interface{}) bool {
 			c, ok := value.(*Controller)
 			if ok && c != nil {
