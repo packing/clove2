@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"net/http"
+	"strings"
 
 	"github.com/packing/clove2/base"
 	"github.com/packing/clove2/errors"
@@ -40,10 +41,6 @@ func (p *HTTPPacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 		return errors.New(ErrorDataNotMatch), nil, 0
 	}
 
-	if int(req.ContentLength) > len(in) {
-		return errors.New(ErrorDataNotReady), nil, 0
-	}
-
 	packet := new(HTTPPacket)
 	packet.Request = req.Clone(req.Context())
 
@@ -63,7 +60,7 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 		if n < HttpHeaderMinLength {
 			break
 		}
-		base.LogVerbose("peekData >>", peekData)
+		base.LogVerbose("peekData,n >>", peekData, n)
 
 		fB := base.ReadAsciiCode(peekData)
 		if fB != 71 && fB != 80 {
@@ -83,14 +80,26 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 			return errors.New(ErrorDataIsDamage), nil
 		}
 
-		in, n := b.Next(int(req.ContentLength))
-		if n != int(req.ContentLength) {
-			return errors.New(ErrorDataIsDamage), nil
+		pStr := string(peekData)
+		iHeaderEnd := strings.Index(pStr, "\r\n\r\n")
+		if iHeaderEnd == -1 {
+			break
 		}
 
-		base.LogVerbose("in >>", in)
+		lengthHeader := iHeaderEnd + 1
+		pStr = pStr[lengthHeader+4-1:]
 
-		err, pck, n := p.ParseFromBytes(in)
+		iBodyEnd := strings.Index(pStr, "\r\n\r\n")
+		if iBodyEnd == -1 {
+			break
+		}
+
+		lengthTotal := lengthHeader + iBodyEnd + 4*2 + 1
+		base.LogVerbose("lengthTotal >>", lengthTotal)
+
+		in, _ := b.Next(lengthTotal)
+
+		err, pck, _ := p.ParseFromBytes(in)
 		if err != nil {
 			if err.Error() != ErrorDataNotReady {
 				return err, nil
@@ -126,6 +135,8 @@ func (p *HTTPPacketParser) TestMatchScore(b base.Buffer) int {
 
 	if req.ContentLength > int64(b.Len()) {
 		score = 20
+	} else if req.ContentLength > HttpMaxLengthSupported {
+		return score
 	} else {
 		score = 90
 	}
