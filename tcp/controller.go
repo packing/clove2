@@ -243,6 +243,7 @@ func (controller *Controller) processRead() {
 			controller.setDataReceivedFlag()
 			err = controller.parsePacket()
 			if err != nil {
+				base.LogVerbose("Controller will close for: %s", err.Error())
 				controller.Close()
 				break
 			}
