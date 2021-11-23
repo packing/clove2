@@ -138,6 +138,7 @@ func (pool *StandardPool) CheckControllers() {
 		if !ok {
 			break
 		}
+		base.LogVerbose("CheckControllers")
 
 		pool.controllers.Range(func(key, value interface{}) bool {
 			c, ok := value.(*Controller)
