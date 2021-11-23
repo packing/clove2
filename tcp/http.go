@@ -86,13 +86,12 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 			break
 		}
 
-		lengthTotal := iHeaderEnd + 1 + 4
+		lengthTotal := iHeaderEnd + 4
 		if req.ContentLength > 0 {
 			lengthTotal += int(req.ContentLength)
 		}
 
 		if b.Len() < lengthTotal {
-			base.LogVerbose("Data length not ready >> %d < %d", b.Len(), lengthTotal)
 			break
 		}
 
