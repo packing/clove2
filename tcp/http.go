@@ -56,7 +56,7 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 
 	for {
 
-		peekData, n := b.Peek(4096)
+		peekData, n := b.Peek(b.Len())
 		if n < HttpHeaderMinLength {
 			break
 		}
@@ -87,22 +87,14 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 			break
 		}
 
-		base.LogVerbose("Header >>", pStr[:iHeaderEnd])
-
-		lengthHeader := iHeaderEnd + 1
-		pStr = pStr[lengthHeader+4-1:]
-
-		base.LogVerbose("Body-next >>", pStr)
-
-		iBodyEnd := strings.Index(pStr, "\r\n\r\n")
-		if iBodyEnd == -1 {
-			break
+		lengthTotal := iHeaderEnd + 1 + 4
+		if req.ContentLength > 0 {
+			lengthTotal += int(req.ContentLength)
 		}
 
-		base.LogVerbose("Body >>", pStr[:iBodyEnd])
-
-		lengthTotal := lengthHeader + iBodyEnd + 4*2 + 1
-		base.LogVerbose("lengthTotal >>", lengthTotal)
+		if b.Len() < lengthTotal {
+			break
+		}
 
 		in, _ := b.Next(lengthTotal)
 
@@ -127,7 +119,7 @@ func (p *HTTPPacketParser) TestMatchScore(b base.Buffer) int {
 
 	score := -1
 
-	peekData, n := b.Peek(4096)
+	peekData, n := b.Peek(b.Len())
 	if n < HttpHeaderMinLength {
 		return score
 	}

@@ -310,6 +310,8 @@ func (controller *Controller) processData() {
 			continue
 		}
 
+		base.LogVerbose("A %s packet received.", pckReceived.GetType())
+
 	}
 
 	controller.waitg.Done()
