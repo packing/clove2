@@ -60,7 +60,6 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 		if n < HttpHeaderMinLength {
 			break
 		}
-		base.LogVerbose("peekData,n >>", peekData, n)
 
 		fB := base.ReadAsciiCode(peekData)
 		if fB != 71 && fB != 80 {
@@ -81,18 +80,26 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 		}
 
 		pStr := string(peekData)
+		base.LogVerbose("peekDataStr >>", pStr)
+
 		iHeaderEnd := strings.Index(pStr, "\r\n\r\n")
 		if iHeaderEnd == -1 {
 			break
 		}
 
+		base.LogVerbose("Header >>", pStr[:iHeaderEnd])
+
 		lengthHeader := iHeaderEnd + 1
 		pStr = pStr[lengthHeader+4-1:]
+
+		base.LogVerbose("Body-next >>", pStr)
 
 		iBodyEnd := strings.Index(pStr, "\r\n\r\n")
 		if iBodyEnd == -1 {
 			break
 		}
+
+		base.LogVerbose("Body >>", pStr[:iBodyEnd])
 
 		lengthTotal := lengthHeader + iBodyEnd + 4*2 + 1
 		base.LogVerbose("lengthTotal >>", lengthTotal)
