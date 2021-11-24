@@ -327,6 +327,7 @@ func (controller *Controller) processWrite() {
 			break
 		}
 	}
+	base.LogVerbose("The connection %d (%s) - Write-process Exited.", controller.GetId().Integer(), controller.GetRemoteHostName())
 	controller.waitg.Done()
 }
 
