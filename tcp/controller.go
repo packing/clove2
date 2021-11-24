@@ -321,6 +321,7 @@ func (controller *Controller) processWrite() {
 						sentBytes = sentBytes[n:]
 						continue
 					}
+					break
 				}
 			}
 		} else {
