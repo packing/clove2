@@ -29,13 +29,14 @@ import (
 )
 
 type Controller struct {
-	conn            net.Conn
-	sessionId       base.CloveId
-	flag            int
-	totalRBytes     int64
-	totalSBytes     int64
-	totalRPcks      int64
-	totalSPcks      int64
+	conn        net.Conn
+	sessionId   base.CloveId
+	flag        int
+	totalRBytes int64
+	totalSBytes int64
+	totalRPcks  int64
+	totalSPcks  int64
+
 	packetFmt       *PacketFormat
 	packetProcessor PacketProcessor
 	manager         ControllerManager
@@ -209,6 +210,10 @@ func (controller *Controller) SendBytes(sendBytes []byte) bool {
 }
 
 func (controller *Controller) SendPackets(sendPcks ...Packet) bool {
+	return controller.SendPacketsAndClose(false, sendPcks...)
+}
+
+func (controller *Controller) SendPacketsAndClose(close bool, sendPcks ...Packet) bool {
 	defer func() {
 		base.LogPanic(recover())
 	}()
@@ -226,6 +231,9 @@ func (controller *Controller) SendPackets(sendPcks ...Packet) bool {
 					controller.queueSend <- raw
 				}
 			}
+		}
+		if close {
+			controller.queueSend <- make([]byte, 0)
 		}
 	}()
 
@@ -294,6 +302,10 @@ func (controller *Controller) processWrite() {
 		if ok {
 			sentBytes, ok := isentBytes.([]byte)
 			if ok {
+				if len(sentBytes) == 0 {
+					controller.Close()
+					break
+				}
 				for {
 					e := controller.conn.SetWriteDeadline(time.Now().Add(timeoutWrited))
 					if e != nil {
