@@ -77,7 +77,7 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 
 		req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(peekData)))
 		if err != nil {
-			return errors.New(ErrorDataNotMatch), nil
+			return err, nil
 		}
 
 		if req.ContentLength > int64(b.Len()) {
