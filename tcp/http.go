@@ -3,6 +3,7 @@ package tcp
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -42,7 +43,18 @@ func (p *HTTPPacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 	}
 
 	packet := new(HTTPPacket)
-	packet.Request = req.Clone(req.Context())
+	packet.Header = make(map[string][]string)
+
+	for k, v := range req.Header {
+		packet.Header[k] = v
+	}
+	if req.ContentLength > 0 && req.ContentLength <= HttpMaxLengthSupported {
+		var body = make([]byte, req.ContentLength)
+		_, err := req.Body.Read(body)
+		if err == nil {
+			packet.Body = body
+		}
+	}
 
 	return nil, packet, int(req.ContentLength)
 }
@@ -142,16 +154,27 @@ func (p *HTTPPacketParser) TestMatchScore(b base.Buffer) int {
 	return score
 }
 
-func (p *HTTPPacketPackager) Package(dst Packet, in []byte) (error, []byte) {
+func (p *HTTPPacketPackager) Package(dst Packet) (error, []byte) {
 	defer func() {
 		base.LogPanic(recover())
 	}()
 
 	if dst.GetType() != "http" {
-		return errors.New(ErrorPacketUnsupported), in
+		return errors.New(ErrorPacketUnsupported), nil
 	}
 
-	header := make([]byte, 0)
+	httpPck, ok := dst.(*HTTPPacket)
+	if !ok {
+		return errors.New(ErrorPacketUnsupported), nil
+	}
 
-	return nil, bytes.Join([][]byte{header, in}, []byte(""))
+	httpPck.Header["Content-Length"] = []string{fmt.Sprintf("%d", len(httpPck.Body))}
+
+	headers := make([]string, 0)
+	for k, v := range httpPck.Header {
+		headers = append(headers, fmt.Sprintf("%s: %s\r\n", k, strings.Join(v, ";")))
+	}
+	responseText := fmt.Sprintf("HTTP/%s %d %s\r\n%s\r\n\r\n%s", httpPck.HTTPVer, httpPck.StatusCode, httpPck.StatusText, headers, httpPck.Body)
+
+	return nil, []byte(responseText)
 }

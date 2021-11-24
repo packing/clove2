@@ -160,7 +160,7 @@ func (p *ClovePacketParser) TestMatchScore(b base.Buffer) int {
 	return score
 }
 
-func (p *ClovePacketPackager) Package(dst Packet, in []byte) (error, []byte) {
+func (p *ClovePacketPackager) Package(dst Packet) (error, []byte) {
 	defer func() {
 		base.LogPanic(recover())
 	}()
@@ -168,12 +168,12 @@ func (p *ClovePacketPackager) Package(dst Packet, in []byte) (error, []byte) {
 	header := make([]byte, PacketCloveHeaderLength)
 
 	if dst.GetType() != "binary" {
-		return errors.New(ErrorPacketUnsupported), in
+		return errors.New(ErrorPacketUnsupported), nil
 	}
 
 	pck, ok := dst.(*BinaryPacket)
 	if !ok {
-		return errors.New(ErrorPacketUnsupported), in
+		return errors.New(ErrorPacketUnsupported), nil
 	}
 
 	var opFlag byte = 0
@@ -189,10 +189,10 @@ func (p *ClovePacketPackager) Package(dst Packet, in []byte) (error, []byte) {
 
 	header[0] = MaskCloveFeature | opFlag
 
-	packetLen := uint32(len(in)) + PacketCloveHeaderLength
+	packetLen := uint32(len(pck.Raw)) + PacketCloveHeaderLength
 	ptoInfo := uint32((pck.ProtocolType<<4)|pck.ProtocolVer) << 24
 	packetLen |= ptoInfo
 	binary.BigEndian.PutUint32(header[1:], packetLen)
 
-	return nil, bytes.Join([][]byte{header, in}, []byte(""))
+	return nil, bytes.Join([][]byte{header, pck.Raw}, []byte(""))
 }

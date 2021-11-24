@@ -194,16 +194,40 @@ func (controller *Controller) CheckAlive() bool {
 	return base.TestMask(controller.flag, cFlagOpened)
 }
 
-func (controller *Controller) SendBytes(sentBytes []byte) bool {
+func (controller *Controller) SendBytes(sendBytes []byte) bool {
 	defer func() {
 		base.LogPanic(recover())
 	}()
 
-	if controller.flag != cFlagOpened {
+	if !base.TestMask(controller.flag, cFlagOpened) {
 		return false
 	}
 
-	go func() { controller.queueSend <- sentBytes }()
+	go func() { controller.queueSend <- sendBytes }()
+
+	return true
+}
+
+func (controller *Controller) SendPackets(sendPcks ...Packet) bool {
+	defer func() {
+		base.LogPanic(recover())
+	}()
+
+	if !base.TestMask(controller.flag, cFlagOpened) {
+		return false
+	}
+
+	go func() {
+		for _, pck := range sendPcks {
+			var fmtPck = GetPacketFormatManager().FindPacketFormat(pck.GetType())
+			if fmtPck != nil {
+				err, raw := fmtPck.Packager.Package(pck)
+				if err == nil {
+					controller.queueSend <- raw
+				}
+			}
+		}
+	}()
 
 	return true
 }

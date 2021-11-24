@@ -1,7 +1,6 @@
 package tcp
 
 import (
-	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -40,8 +39,11 @@ type TextPacket struct {
 }
 
 type HTTPPacket struct {
-	Request *http.Request
-	Body    string
+	Header     map[string][]string
+	Body       []byte
+	StatusCode int
+	StatusText string
+	HTTPVer    string
 }
 
 type PacketParser interface {
@@ -53,7 +55,7 @@ type PacketParser interface {
 }
 
 type PacketPackager interface {
-	Package(Packet, []byte) (error, []byte)
+	Package(Packet) (error, []byte)
 }
 
 type PacketProcessor interface {
