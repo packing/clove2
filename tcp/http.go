@@ -53,6 +53,8 @@ func (p *HTTPPacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 		}
 	}
 
+	base.LogVerbose("Http-req >>\n%s", string(in))
+
 	return nil, packet, int(req.ContentLength)
 }
 
@@ -177,5 +179,6 @@ func (p *HTTPPacketPackager) Package(dst Packet) (error, []byte) {
 	}
 	responseText := fmt.Sprintf("HTTP/%s %d %s\r\n%s\r\n\r\n%s", httpPck.HTTPVer, httpPck.StatusCode, httpPck.StatusText, strings.Join(headers, "\r\n"), httpPck.Body)
 
+	base.LogVerbose("Http-resp >>\n%s", responseText)
 	return nil, []byte(responseText)
 }
