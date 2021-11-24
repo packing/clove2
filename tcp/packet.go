@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -39,7 +40,7 @@ type TextPacket struct {
 }
 
 type HTTPPacket struct {
-	Header     map[string][]string
+	Request    *http.Request
 	Body       []byte
 	StatusCode int
 	StatusText string
