@@ -249,11 +249,11 @@ func (controller *Controller) ReceivePackets(pcks ...Packet) {
 		return
 	}
 
-	go func() {
-		for _, pck := range pcks {
-			controller.chReceived <- pck
-		}
-	}()
+	//go func() {
+	for _, pck := range pcks {
+		controller.chReceived <- pck
+	}
+	//}()
 }
 
 func (controller *Controller) processRead() {
