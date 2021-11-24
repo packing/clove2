@@ -40,11 +40,12 @@ type TextPacket struct {
 }
 
 type HTTPPacket struct {
-	Request    *http.Request
-	Body       []byte
-	StatusCode int
-	StatusText string
-	HTTPVer    string
+	Request        *http.Request
+	ResponseHeader http.Header
+	Body           []byte
+	StatusCode     int
+	StatusText     string
+	HTTPVer        string
 }
 
 type PacketParser interface {

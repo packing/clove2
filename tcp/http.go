@@ -44,6 +44,7 @@ func (p *HTTPPacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 
 	packet := new(HTTPPacket)
 	packet.Request = req.Clone(req.Context())
+	packet.ResponseHeader = make(http.Header)
 	if req.ContentLength > 0 && req.ContentLength <= HttpMaxLengthSupported {
 		var body = make([]byte, req.ContentLength)
 		_, err := req.Body.Read(body)
@@ -164,10 +165,14 @@ func (p *HTTPPacketPackager) Package(dst Packet) (error, []byte) {
 		return errors.New(ErrorPacketUnsupported), nil
 	}
 
-	httpPck.Request.Response.Header["Content-Length"] = []string{fmt.Sprintf("%d", len(httpPck.Body))}
+	if httpPck.ResponseHeader == nil {
+		httpPck.ResponseHeader = make(http.Header)
+	}
+
+	httpPck.ResponseHeader["Content-Length"] = []string{fmt.Sprintf("%d", len(httpPck.Body))}
 
 	headers := make([]string, 0)
-	for k, v := range httpPck.Request.Response.Header {
+	for k, v := range httpPck.ResponseHeader {
 		headers = append(headers, fmt.Sprintf("%s: %s\r\n", k, strings.Join(v, ";")))
 	}
 	responseText := fmt.Sprintf("HTTP/%s %d %s\r\n%s\r\n\r\n%s", httpPck.HTTPVer, httpPck.StatusCode, httpPck.StatusText, headers, httpPck.Body)
