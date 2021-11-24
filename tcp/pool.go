@@ -124,6 +124,9 @@ func (pool *StandardPool) ControllerLeave(controller *Controller) {
 }
 
 func (pool *StandardPool) ControllerClosing(controller *Controller) {
+	if !pool.bChecking {
+		return
+	}
 	go func() {
 		pool.chEmergency <- controller.GetId()
 	}()

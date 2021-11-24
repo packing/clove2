@@ -173,9 +173,9 @@ func (p *HTTPPacketPackager) Package(dst Packet) (error, []byte) {
 
 	headers := make([]string, 0)
 	for k, v := range httpPck.ResponseHeader {
-		headers = append(headers, fmt.Sprintf("%s: %s\r\n", k, strings.Join(v, ";")))
+		headers = append(headers, fmt.Sprintf("%s: %s", k, strings.Join(v, ";")))
 	}
-	responseText := fmt.Sprintf("HTTP/%s %d %s\r\n%s\r\n\r\n%s", httpPck.HTTPVer, httpPck.StatusCode, httpPck.StatusText, headers, httpPck.Body)
+	responseText := fmt.Sprintf("HTTP/%s %d %s\r\n%s\r\n\r\n%s", httpPck.HTTPVer, httpPck.StatusCode, httpPck.StatusText, strings.Join(headers, "\r\n"), httpPck.Body)
 
 	return nil, []byte(responseText)
 }
