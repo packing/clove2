@@ -41,6 +41,7 @@ type TextPacket struct {
 
 type HTTPPacket struct {
 	Request *http.Request
+	Body    string
 }
 
 type PacketParser interface {

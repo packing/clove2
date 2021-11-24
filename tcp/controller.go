@@ -132,7 +132,6 @@ func (controller *Controller) parsePacket() error {
 		if err != nil {
 			return err
 		}
-		base.LogVerbose("A packet parsed with [%s].", controller.packetFmt.Tag)
 		controller.ReceivePackets(pcks...)
 	} else {
 		controller.packetFmt = GetPacketFormatManager().DetermineFromBuffer(controller.bufRecv)
@@ -244,8 +243,8 @@ func (controller *Controller) processRead() {
 			controller.setDataReceivedFlag()
 			err = controller.parsePacket()
 			if err != nil {
-				base.LogVerbose("Controller will close for: %+v", err)
-
+				base.LogError("The connection %d (%s) will be closed because of a data problem.", controller.GetId().Integer(), controller.GetRemoteHostName())
+				base.LogVerbose("The full stack:\n\n%+v\n\n", err)
 				controller.Close()
 				break
 			}
@@ -312,7 +311,12 @@ func (controller *Controller) processData() {
 			continue
 		}
 
-		base.LogVerbose("A %s packet received.", pckReceived.GetType())
+		err := controller.manager.ControllerPacketReceived(pckReceived, controller)
+		if err != nil {
+			base.LogError("The connection %d (%s) will be closed because of '%s'.", controller.GetId().Integer(), controller.GetRemoteHostName(), err.Error())
+			base.LogVerbose("The full stack:\n\n%+v\n\n", err)
+			controller.Close()
+		}
 
 	}
 

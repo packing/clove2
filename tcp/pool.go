@@ -36,8 +36,9 @@ type StandardPool struct {
 	packetFormat    *PacketFormat
 	packetProcessor PacketProcessor
 
-	OnControllerEnter func(*Controller) error
-	OnControllerLeave func(*Controller)
+	OnControllerEnter          func(*Controller) error
+	OnControllerLeave          func(*Controller)
+	OnControllerPacketReceived func(Packet, *Controller) error
 
 	limit int
 	top   int32
@@ -222,4 +223,11 @@ func (pool *StandardPool) GetPacketProcessor() PacketProcessor {
 
 func (pool *StandardPool) SetPacketProcessor(pp PacketProcessor) {
 	pool.packetProcessor = pp
+}
+
+func (pool *StandardPool) ControllerPacketReceived(pck Packet, controller *Controller) error {
+	if pool.OnControllerPacketReceived != nil {
+		return pool.OnControllerPacketReceived(pck, controller)
+	}
+	return nil
 }
