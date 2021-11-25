@@ -49,6 +49,7 @@ func (idGen *IdGenerator) NextId() <-chan CloveId {
 		id.d = uint16(next >> 16)
 
 		iv <- id
+		close(iv)
 	}()
 	return iv
 }
@@ -68,6 +69,7 @@ func (idGen *IdGenerator) NextIdWithSeed(seed uint) <-chan CloveId {
 		id.d = uint16(next >> 16)
 
 		iv <- id
+		close(iv)
 	}()
 	return iv
 }
