@@ -361,9 +361,90 @@ func (controller *Controller) processData() {
 	controller.waitg.Done()
 }
 
-func (controller *Controller) process() {
+func (controller *Controller) process1() {
 	controller.waitg = new(sync.WaitGroup)
 	go controller.processRead()
 	go controller.processWrite()
 	go controller.processData()
+
+}
+
+func (controller *Controller) tryRead(dstBuf *[]byte) <-chan error {
+	var iv = make(chan error)
+	go func() {
+		var buf = make([]byte, 512)
+		n, err := controller.conn.Read(buf)
+		if err != nil {
+			iv <- err
+		}
+		buf = buf[:n]
+		dstBuf = &buf
+		iv <- nil
+	}()
+
+	return iv
+}
+func (controller *Controller) process() {
+	go func() {
+		var buf []byte
+		select {
+		case err := <-controller.tryRead(&buf):
+			if err == nil {
+				_, err = controller.bufRecv.Write(buf)
+				if err != nil {
+					controller.Close()
+					break
+				}
+				controller.setDataReceivedFlag()
+				err = controller.parsePacket()
+				if err != nil {
+					base.LogError("The connection %d (%s) will be closed because of a data problem.", controller.GetId().Integer(), controller.GetRemoteHostName())
+					base.LogVerbose("The full stack:\n\n%+v\n\n", err)
+					controller.Close()
+					break
+				}
+				atomic.AddInt64(&controller.totalRBytes, int64(len(buf)))
+			}
+		case isentBytes, ok := <-controller.queueSend:
+			if ok {
+				sentBytes, ok := isentBytes.([]byte)
+				if ok {
+					if len(sentBytes) == 0 {
+						controller.Close()
+						break
+					}
+					for {
+						e := controller.conn.SetWriteDeadline(time.Now().Add(timeoutWrited))
+						if e != nil {
+							controller.Close()
+							break
+						}
+						n, e := controller.conn.Write(sentBytes)
+						if e != nil {
+							controller.Close()
+							break
+						}
+						if n < len(sentBytes) {
+							sentBytes = sentBytes[n:]
+							continue
+						}
+						break
+					}
+				}
+			}
+		case iReceived, ok := <-controller.chReceived:
+			pckReceived, ok := iReceived.(Packet)
+			if !ok || pckReceived == nil {
+				base.LogVerbose("A error value [%s] on [processData].", iReceived)
+			} else {
+				err := controller.manager.ControllerPacketReceived(pckReceived, controller)
+				if err != nil {
+					base.LogError("The connection %d (%s) will be closed because of '%s'.", controller.GetId().Integer(), controller.GetRemoteHostName(), err.Error())
+					base.LogVerbose("The full stack:\n\n%+v\n\n", err)
+					controller.Close()
+				}
+			}
+		}
+
+	}()
 }
