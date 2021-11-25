@@ -177,8 +177,13 @@ func (controller *Controller) CheckTimeout() {
 
 func (controller *Controller) Close() {
 	if base.TestMask(controller.flag, cFlagOpened) {
-		controller.flag = cFlagClosing
-		controller.manager.ControllerClosing(controller)
+		//controller.manager.ControllerClosing(controller)
+		controller.manager.ControllerLeave(controller)
+		_ = controller.conn.Close()
+		controller.queueSend.Close()
+		controller.chReceived.Close()
+		controller.waitg.Wait()
+		controller.flag = cFlagClosed
 	}
 }
 
@@ -404,6 +409,9 @@ func (controller *Controller) process() {
 					break
 				}
 				atomic.AddInt64(&controller.totalRBytes, int64(len(buf)))
+			} else {
+				controller.Close()
+				break
 			}
 		case isentBytes, ok := <-controller.queueSend:
 			if ok {
@@ -431,11 +439,16 @@ func (controller *Controller) process() {
 						break
 					}
 				}
+			} else {
+				controller.Close()
+				break
 			}
 		case iReceived, ok := <-controller.chReceived:
 			pckReceived, ok := iReceived.(Packet)
 			if !ok || pckReceived == nil {
 				base.LogVerbose("A error value [%s] on [processData].", iReceived)
+				controller.Close()
+				break
 			} else {
 				err := controller.manager.ControllerPacketReceived(pckReceived, controller)
 				if err != nil {

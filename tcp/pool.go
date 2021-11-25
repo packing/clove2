@@ -190,7 +190,7 @@ func (pool *StandardPool) EmergencyMonitor() {
 
 func (pool *StandardPool) Lookup() {
 	go pool.CheckControllers()
-	go pool.EmergencyMonitor()
+	//go pool.EmergencyMonitor()
 	pool.timerChecking.Reset(time.Millisecond * 500)
 }
 
