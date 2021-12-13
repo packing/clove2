@@ -26,6 +26,7 @@ import (
 	"encoding/binary"
 	"math"
 	"reflect"
+	"strconv"
 	"unsafe"
 
 	"github.com/packing/clove2/base"
@@ -46,25 +47,26 @@ var (
 */
 
 const (
-	CloveDataTypeUnknown  = 0
-	CloveDataTypeInt8     = 1
-	CloveDataTypeUint8    = 2
-	CloveDataTypeInt16    = 3
-	CloveDataTypeUint16   = 4
-	CloveDataTypeInt32    = 5
-	CloveDataTypeUint32   = 6
-	CloveDataTypeInt64    = 7
-	CloveDataTypeUint64   = 8
-	CloveDataTypeFloat32  = 9
-	CloveDataTypeFloat64  = 10
-	CloveDataTypeNil      = 11
-	CloveDataTypeTrue     = 12
-	CloveDataTypeFalse    = 13
-	CloveDataTypeString   = 14
-	CloveDataTypeBytes    = 15
-	CloveDataTypeMap      = 16
-	CloveDataTypeList     = 17
-	CloveDataTypeReserved = 18
+	CloveDataTypeUnknown   = 0
+	CloveDataTypeInt8      = 1
+	CloveDataTypeUint8     = 2
+	CloveDataTypeInt16     = 3
+	CloveDataTypeUint16    = 4
+	CloveDataTypeInt32     = 5
+	CloveDataTypeUint32    = 6
+	CloveDataTypeInt64     = 7
+	CloveDataTypeUint64    = 8
+	CloveDataTypeFloat32   = 9
+	CloveDataTypeFloat64   = 10
+	CloveDataTypeNil       = 11
+	CloveDataTypeTrue      = 12
+	CloveDataTypeFalse     = 13
+	CloveDataTypeString    = 14
+	CloveDataTypeBytes     = 15
+	CloveDataTypeMap       = 16
+	CloveDataTypeList      = 17
+	CloveDataTypeBigNumber = 18
+	CloveDataTypeReserved  = 19
 )
 
 // DecoderClove 	Clove data deserialization class
@@ -212,6 +214,21 @@ func (receiver DecoderClove) Decode(raw []byte) (error, CloveData, []byte) {
 	switch elementType {
 	case CloveDataTypeReserved:
 		return nil, nil, realData[elementCount:]
+
+	case CloveDataTypeBigNumber:
+		e := string(realData[:elementCount])
+		var rr interface{} = 0
+		er, errpar := strconv.ParseInt(e, 10, 64)
+		if errpar != nil {
+			return nil, 0, realData[elementCount:]
+		}
+		if unsafe.Sizeof(0x0) == 8 {
+			rr = int(er)
+		} else {
+			rr = er
+		}
+		return nil, rr, realData[elementCount:]
+
 	case CloveDataTypeInt8:
 		return nil, int(int8(realData[0])), realData[elementCount:]
 	case CloveDataTypeUint8:
