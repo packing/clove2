@@ -27,6 +27,7 @@ import (
 	"math"
 	"reflect"
 	"strconv"
+	"time"
 	"unsafe"
 
 	"github.com/packing/clove2/base"
@@ -77,6 +78,19 @@ type DecoderClove struct {
 // EncoderClove 	Clove data serialization class
 type EncoderClove struct {
 	byteOrder binary.ByteOrder
+}
+
+var TimeCollector = make(map[string]int64)
+
+func CollectTime(tag string, st *time.Time) {
+	t := time.Now().Sub(*st).Nanoseconds()
+	f, ok := TimeCollector[tag]
+	if ok {
+		TimeCollector[tag] = f + t
+	} else {
+		TimeCollector[tag] = t
+	}
+	*st = time.Now()
 }
 
 var CloveCodec = Codec{Protocol: ProtocolClove, Version: 1, Decoder: new(DecoderClove), Encoder: new(EncoderClove), Name: "clove"}
@@ -213,6 +227,7 @@ func (receiver DecoderClove) Decode(raw []byte) (error, CloveData, []byte) {
 
 	switch elementType {
 	case CloveDataTypeReserved:
+	case CloveDataTypeNil:
 		return nil, nil, realData[elementCount:]
 
 	case CloveDataTypeBigNumber:
@@ -307,17 +322,27 @@ func (receiver EncoderClove) getByteOrder() binary.ByteOrder {
 	}
 	return receiver.byteOrder
 }
-
 func (receiver EncoderClove) Encode(raw *CloveData) (error, []byte) {
 	defer func() {
 		base.LogPanic(recover())
 	}()
+
 	if *raw == nil {
 		rb := make([]byte, 1)
-		rb[0] = makeHeader(CloveDataTypeReserved, 0)
+		rb[0] = makeHeader(CloveDataTypeNil, 0)
 		return nil, rb
 	}
 	var rawValue = reflect.ValueOf(*raw)
+
+	return receiver.EncodeWithReflectValue(&rawValue)
+}
+
+func (receiver EncoderClove) EncodeWithReflectValue(rawValue *reflect.Value) (error, []byte) {
+	defer func() {
+		base.LogPanic(recover())
+	}()
+
+	var itr = rawValue.Interface()
 	var tpKind = rawValue.Type().Kind()
 
 	var isInt = false
@@ -337,7 +362,7 @@ func (receiver EncoderClove) Encode(raw *CloveData) (error, []byte) {
 	case reflect.Int64:
 		fallthrough
 	case reflect.Int:
-		intRawValue = reflect.ValueOf(*raw).Int()
+		intRawValue = rawValue.Int()
 
 		intValue = uint64(intRawValue)
 		isInt = true
@@ -352,21 +377,21 @@ func (receiver EncoderClove) Encode(raw *CloveData) (error, []byte) {
 	case reflect.Uint64:
 		fallthrough
 	case reflect.Uint:
-		intValue = uint64(reflect.ValueOf(*raw).Uint())
+		intValue = uint64(rawValue.Uint())
 		isInt = true
 		isSign = false
 
 	case reflect.Float32:
 		isFloat = true
 		isSign = false
-		intValue = uint64(math.Float32bits((*raw).(float32)))
+		intValue = uint64(math.Float32bits(itr.(float32)))
 	case reflect.Float64:
 		isFloat = true
 		isSign = false
-		intValue = math.Float64bits((*raw).(float64))
+		intValue = math.Float64bits(rawValue.Float())
 	case reflect.Bool:
 		rb := make([]byte, 1)
-		if reflect.ValueOf(*raw).Bool() {
+		if rawValue.Bool() {
 			rb[0] = makeHeader(CloveDataTypeTrue, 0)
 		} else {
 			rb[0] = makeHeader(CloveDataTypeFalse, 0)
@@ -376,6 +401,14 @@ func (receiver EncoderClove) Encode(raw *CloveData) (error, []byte) {
 		isMap = true
 	case reflect.Slice:
 		isSlice = true
+	case reflect.Interface:
+		x, ok := rawValue.Recv()
+		if !ok {
+			rb := make([]byte, 1)
+			rb[0] = makeHeader(CloveDataTypeNil, 0)
+			return nil, rb
+		}
+		return receiver.EncodeWithReflectValue(&x)
 	default:
 	}
 
@@ -440,8 +473,8 @@ func (receiver EncoderClove) Encode(raw *CloveData) (error, []byte) {
 		}
 	}
 
-	bytesRaw, isBytes := (*raw).([]byte)
-	strRaw, isStr := (*raw).(string)
+	bytesRaw, isBytes := itr.([]byte)
+	strRaw, isStr := itr.(string)
 	if isBytes || isStr {
 		rbs := make([][]byte, 2)
 		rbs[1] = bytesRaw
@@ -459,17 +492,15 @@ func (receiver EncoderClove) Encode(raw *CloveData) (error, []byte) {
 	if isMap {
 		var i = 0
 		var rbs = make([][]byte, rawValue.Len()+1)
-		var ks = rawValue.MapKeys()
-		for ki := range ks {
-			var k = ks[ki]
-			var v = rawValue.MapIndex(k)
-			var ik = k.Interface()
-			err, rk := receiver.Encode(&ik)
+		var ks = rawValue.MapRange()
+		for ks.Next() {
+			var k = ks.Key().Elem()
+			err, rk := receiver.EncodeWithReflectValue(&k)
 			if err != nil {
 				continue
 			}
-			var iv = v.Interface()
-			err, vk := receiver.Encode(&iv)
+			var v = ks.Value().Elem()
+			err, vk := receiver.EncodeWithReflectValue(&v)
 			if err != nil {
 				continue
 			}
@@ -487,9 +518,8 @@ func (receiver EncoderClove) Encode(raw *CloveData) (error, []byte) {
 		var totalLen = rawValue.Len()
 		var rbs = make([][]byte, totalLen+1)
 		for i := 0; i < totalLen; i++ {
-			v := rawValue.Index(i)
-			iv := v.Interface()
-			err, vk := receiver.Encode(&iv)
+			v := rawValue.Index(i).Elem()
+			err, vk := receiver.EncodeWithReflectValue(&v)
 			if err != nil {
 				continue
 			}

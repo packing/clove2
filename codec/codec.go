@@ -74,17 +74,17 @@ func (receiver EncoderMemory) Encode(raw *CloveData) (error, []byte) {
 	return nil, data
 }
 
-type IMMapReader struct {
+type CloveMapReader struct {
 	Map CloveMap
 }
 
-func CreateMapReader(m CloveMap) *IMMapReader {
-	mr := new(IMMapReader)
+func CreateMapReader(m CloveMap) *CloveMapReader {
+	mr := new(CloveMapReader)
 	mr.Map = m
 	return mr
 }
 
-func (receiver IMMapReader) TryReadValue(key interface{}) interface{} {
+func (receiver CloveMapReader) TryReadValue(key interface{}) interface{} {
 	kind := reflect.TypeOf(key).Kind()
 	switch kind {
 	case reflect.String:
@@ -235,7 +235,7 @@ func (receiver IMMapReader) TryReadValue(key interface{}) interface{} {
 	}
 }
 
-func (receiver IMMapReader) IntValueOf(key interface{}, def int64) int64 {
+func (receiver CloveMapReader) IntValueOf(key interface{}, def int64) int64 {
 	v := receiver.TryReadValue(key)
 	if v == nil {
 		return def
@@ -266,7 +266,7 @@ func (receiver IMMapReader) IntValueOf(key interface{}, def int64) int64 {
 	}
 }
 
-func (receiver IMMapReader) UintValueOf(key interface{}, def uint64) uint64 {
+func (receiver CloveMapReader) UintValueOf(key interface{}, def uint64) uint64 {
 	v := receiver.TryReadValue(key)
 	if v == nil {
 		return def
@@ -297,7 +297,7 @@ func (receiver IMMapReader) UintValueOf(key interface{}, def uint64) uint64 {
 	}
 }
 
-func (receiver IMMapReader) StrValueOf(key interface{}, def string) string {
+func (receiver CloveMapReader) StrValueOf(key interface{}, def string) string {
 	v := receiver.TryReadValue(key)
 	if v == nil {
 		return def
@@ -308,7 +308,7 @@ func (receiver IMMapReader) StrValueOf(key interface{}, def string) string {
 	return reflect.ValueOf(v).String()
 }
 
-func (receiver IMMapReader) FloatValueOf(key interface{}, def float64) float64 {
+func (receiver CloveMapReader) FloatValueOf(key interface{}, def float64) float64 {
 	v := receiver.TryReadValue(key)
 	if v == nil {
 		return def
@@ -319,7 +319,7 @@ func (receiver IMMapReader) FloatValueOf(key interface{}, def float64) float64 {
 	return reflect.ValueOf(v).Float()
 }
 
-func (receiver IMMapReader) BoolValueOf(key interface{}) bool {
+func (receiver CloveMapReader) BoolValueOf(key interface{}) bool {
 	v := receiver.TryReadValue(key)
 	if v == nil {
 		return false
@@ -330,17 +330,17 @@ func (receiver IMMapReader) BoolValueOf(key interface{}) bool {
 	return reflect.ValueOf(v).Bool()
 }
 
-type IMSliceReader struct {
+type CloveSliceReader struct {
 	List CloveSlice
 }
 
-func CreateSliceReader(m CloveSlice) *IMSliceReader {
-	mr := new(IMSliceReader)
+func CreateSliceReader(m CloveSlice) *CloveSliceReader {
+	mr := new(CloveSliceReader)
 	mr.List = m
 	return mr
 }
 
-func (receiver IMSliceReader) IntValueOf(index int, def int64) int64 {
+func (receiver CloveSliceReader) IntValueOf(index int, def int64) int64 {
 	if index >= len(receiver.List) || index < 0 {
 		return def
 	}
@@ -374,7 +374,7 @@ func (receiver IMSliceReader) IntValueOf(index int, def int64) int64 {
 	}
 }
 
-func (receiver IMSliceReader) UintValueOf(index int, def uint64) uint64 {
+func (receiver CloveSliceReader) UintValueOf(index int, def uint64) uint64 {
 	if index >= len(receiver.List) || index < 0 {
 		return def
 	}
@@ -408,7 +408,7 @@ func (receiver IMSliceReader) UintValueOf(index int, def uint64) uint64 {
 	}
 }
 
-func (receiver IMSliceReader) StrValueOf(index int, def string) string {
+func (receiver CloveSliceReader) StrValueOf(index int, def string) string {
 	if index >= len(receiver.List) || index < 0 {
 		return def
 	}
@@ -419,7 +419,7 @@ func (receiver IMSliceReader) StrValueOf(index int, def string) string {
 	return reflect.ValueOf(v).String()
 }
 
-func (receiver IMSliceReader) MySQLStrValueOf(index int, def string) string {
+func (receiver CloveSliceReader) MySQLStrValueOf(index int, def string) string {
 	if index >= len(receiver.List) || index < 0 {
 		return def
 	}
@@ -433,7 +433,7 @@ func (receiver IMSliceReader) MySQLStrValueOf(index int, def string) string {
 	return string(reflect.ValueOf(v).Bytes())
 }
 
-func (receiver IMSliceReader) FloatValueOf(index int, def float64) float64 {
+func (receiver CloveSliceReader) FloatValueOf(index int, def float64) float64 {
 	if index >= len(receiver.List) || index < 0 {
 		return def
 	}
@@ -444,7 +444,7 @@ func (receiver IMSliceReader) FloatValueOf(index int, def float64) float64 {
 	return reflect.ValueOf(v).Float()
 }
 
-func (receiver IMSliceReader) BoolValueOf(index int) bool {
+func (receiver CloveSliceReader) BoolValueOf(index int) bool {
 	if index >= len(receiver.List) || index < 0 {
 		return false
 	}
