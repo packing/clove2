@@ -24,12 +24,14 @@ type ClovePacketParser struct {
 type ClovePacketPackager struct {
 }
 
-var ClovePacketFormat = PacketFormat{
+var ClovePacketFormat = &PacketFormat{
 	"clove",
 	0,
 	"binary",
+	false,
 	&ClovePacketParser{},
 	&ClovePacketPackager{},
+	nil,
 }
 
 func (p *ClovePacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
@@ -130,6 +132,7 @@ func (p *ClovePacketParser) TestMatchScore(b base.Buffer) int {
 	if n < PacketCloveHeaderLength {
 		return score
 	}
+	score = 0
 
 	opFlag := int(peekData[0])
 	mask := opFlag & MaskCloveFeature

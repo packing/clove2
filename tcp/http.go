@@ -20,12 +20,14 @@ type HTTPPacketParser struct {
 type HTTPPacketPackager struct {
 }
 
-var HTTPPacketFormat = PacketFormat{
+var HTTPPacketFormat = &PacketFormat{
 	"http",
 	0,
 	"http",
+	false,
 	&HTTPPacketParser{},
 	&HTTPPacketPackager{},
+	nil,
 }
 
 func (p *HTTPPacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
@@ -43,7 +45,7 @@ func (p *HTTPPacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 	}
 
 	packet := new(HTTPPacket)
-	packet.Request = req.Clone(req.Context())
+	packet.Request = req
 	packet.ResponseHeader = make(http.Header)
 	if req.ContentLength > 0 && req.ContentLength <= HttpMaxLengthSupported {
 		var body = make([]byte, req.ContentLength)
@@ -53,7 +55,7 @@ func (p *HTTPPacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 		}
 	}
 
-	return nil, packet, int(req.ContentLength)
+	return nil, packet, 0
 }
 
 func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
@@ -75,7 +77,18 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 			return errors.New(ErrorDataNotMatch), nil
 		}
 
-		req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(peekData)))
+		pStr := string(peekData)
+
+		iHeaderEnd := strings.Index(pStr, "\r\n\r\n")
+		if iHeaderEnd == -1 {
+			break
+		}
+
+		r := bytes.NewReader(peekData)
+		br := bufio.NewReader(r)
+
+		req, err := http.ReadRequest(br)
+
 		if err != nil {
 			return err, nil
 		}
@@ -86,13 +99,6 @@ func (p *HTTPPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 
 		if req.ContentLength > HttpMaxLengthSupported {
 			return errors.New(ErrorDataIsDamage), nil
-		}
-
-		pStr := string(peekData)
-
-		iHeaderEnd := strings.Index(pStr, "\r\n\r\n")
-		if iHeaderEnd == -1 {
-			break
 		}
 
 		lengthTotal := iHeaderEnd + 4
@@ -135,9 +141,15 @@ func (p *HTTPPacketParser) TestMatchScore(b base.Buffer) int {
 	if fB != 71 && fB != 80 {
 		return score
 	}
+	score = 0
 	req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(peekData)))
 	if err != nil {
 		return score
+	}
+
+	upg := req.Header.Get("Upgrade")
+	if upg != "" {
+		return -1
 	}
 
 	if req.ContentLength > int64(b.Len()) {
@@ -147,6 +159,7 @@ func (p *HTTPPacketParser) TestMatchScore(b base.Buffer) int {
 	} else {
 		score = 90
 	}
+	score = 90
 
 	return score
 }

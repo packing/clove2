@@ -24,7 +24,6 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/packing/clove2/base"
 	"github.com/packing/clove2/errors"
@@ -33,11 +32,13 @@ import (
 // StandardPool           TCP-StandardPool class
 type StandardPool struct {
 	byteOrder       binary.ByteOrder
-	packetFormat    *PacketFormat
+	packetFormatMgr *PacketFormatManager
 	packetProcessor PacketProcessor
 
-	OnControllerEnter          func(*Controller) error
-	OnControllerLeave          func(*Controller)
+	OnControllerEnter func(*Controller) error
+	OnControllerLeave func(*Controller)
+
+	//注意，此处在目标连接的主逻辑线程内，里面任何可能导致挂起的调用都必须go
 	OnControllerPacketReceived func(Packet, *Controller) error
 
 	limit int
@@ -47,37 +48,32 @@ type StandardPool struct {
 
 	controllers *sync.Map
 
-	waitg     *sync.WaitGroup
-	mutex     sync.Mutex
-	bChecking bool
-
-	chEmergency   chan *base.CloveId
-	timerChecking *time.Timer
+	waitg *sync.WaitGroup
+	mutex sync.Mutex
 }
 
 // Create a default tcp StandardPool instance.
-func CreateStandardPool(pf string) *StandardPool {
+func CreateStandardPool(pfs ...string) *StandardPool {
 	p := new(StandardPool)
-	p.packetFormat = GetPacketFormatManager().FindPacketFormat(pf)
+	if len(pfs) > 0 {
+		p.packetFormatMgr = NewPacketFormatManager(pfs...)
+	}
 	p.limit = -1
 	p.controllers = new(sync.Map)
 	p.waitg = new(sync.WaitGroup)
-	p.chEmergency = make(chan *base.CloveId)
-	p.timerChecking = time.NewTimer(time.Millisecond * 500)
-	p.bChecking = true
 	return p
 }
 
 // Create a StandardPool instance that supports a maximum of n controllers.
-func CreateStandardPoolWithLimit(pf string, n int) *StandardPool {
-	p := CreateStandardPool(pf)
+func CreateStandardPoolWithLimit(n int, pfs ...string) *StandardPool {
+	p := CreateStandardPool(pfs...)
 	p.limit = n
 	return p
 }
 
 // Create a StandardPool instance that supports up to n controllers and parses data using byte order b
-func CreateStandardPoolWithByteOrder(pf string, b binary.ByteOrder, n int) *StandardPool {
-	p := CreateStandardPoolWithLimit(pf, n)
+func CreateStandardPoolWithByteOrder(b binary.ByteOrder, n int, pfs ...string) *StandardPool {
+	p := CreateStandardPoolWithLimit(n, pfs...)
 	p.byteOrder = b
 	return p
 }
@@ -109,96 +105,35 @@ func (pool *StandardPool) AddConnection(conn net.Conn, packetProcessor PacketPro
 
 func (pool *StandardPool) ControllerEnter(controller *Controller) <-chan error {
 	iv := make(chan error)
-	if pool.OnControllerEnter != nil {
-		go func() {
+	go func() {
+		if pool.OnControllerEnter != nil {
 			iv <- pool.OnControllerEnter(controller)
-		}()
-	}
+		} else {
+			iv <- nil
+		}
+		close(iv)
+	}()
 	return iv
 }
 
 func (pool *StandardPool) ControllerLeave(controller *Controller) {
+	pool.controllers.Delete(controller.GetId().Integer())
 	if pool.OnControllerLeave != nil {
 		go pool.OnControllerLeave(controller)
 	}
 }
 
-func (pool *StandardPool) ControllerClosing(controller *Controller) {
-	if !pool.bChecking {
-		return
+func (pool *StandardPool) ControllerPacketReceived(pck Packet, controller *Controller) error {
+	if pool.OnControllerPacketReceived != nil {
+		return pool.OnControllerPacketReceived(pck, controller)
 	}
-	go func() {
-		pool.chEmergency <- controller.GetId()
-	}()
-}
-
-func (pool *StandardPool) CheckControllers() {
-	defer func() {
-		pool.waitg.Done()
-		base.LogPanic(recover())
-	}()
-
-	pool.waitg.Add(1)
-
-	for pool.bChecking {
-		<-pool.timerChecking.C
-		pool.controllers.Range(func(key, value interface{}) bool {
-			c, ok := value.(*Controller)
-			if ok && c != nil {
-				c.CheckTimeout()
-			}
-			return true
-		})
-		pool.timerChecking.Reset(time.Millisecond * 500)
-	}
-
-}
-
-func (pool *StandardPool) EmergencyMonitor() {
-	defer func() {
-		pool.waitg.Done()
-		base.LogPanic(recover())
-	}()
-
-	pool.waitg.Add(1)
-
-	for {
-
-		id, ok := <-pool.chEmergency
-		if !ok {
-			break
-		}
-		if id == nil {
-			continue
-		}
-
-		ic, ok := pool.controllers.Load(id.Integer())
-		if !ok {
-			continue
-		}
-
-		c, ok := ic.(*Controller)
-		if ok && c != nil {
-			if !c.CheckAlive() {
-				pool.controllers.Delete(id.Integer())
-				atomic.AddInt32(&pool.curr, -1)
-			}
-		}
-
-	}
+	return nil
 }
 
 func (pool *StandardPool) Lookup() {
-	go pool.CheckControllers()
-	//go pool.EmergencyMonitor()
-	pool.timerChecking.Reset(time.Millisecond * 500)
 }
 
 func (pool *StandardPool) Close() {
-	pool.bChecking = false
-	pool.timerChecking.Stop()
-	pool.timerChecking.Reset(0)
-	close(pool.chEmergency)
 	pool.waitg.Wait()
 	pool.controllers.Range(func(key, value interface{}) bool {
 		pool.controllers.Delete(key)
@@ -211,13 +146,13 @@ func (pool *StandardPool) CloseController(id *base.CloveId) {
 	if ok && ic != nil {
 		c, ok := ic.(*Controller)
 		if ok {
-			c.Close()
+			c.Exit()
 		}
 	}
 }
 
-func (pool *StandardPool) GetPacketFormat() *PacketFormat {
-	return pool.packetFormat
+func (pool *StandardPool) GetPacketFormatManager() *PacketFormatManager {
+	return pool.packetFormatMgr
 }
 
 func (pool *StandardPool) GetPacketProcessor() PacketProcessor {
@@ -226,11 +161,4 @@ func (pool *StandardPool) GetPacketProcessor() PacketProcessor {
 
 func (pool *StandardPool) SetPacketProcessor(pp PacketProcessor) {
 	pool.packetProcessor = pp
-}
-
-func (pool *StandardPool) ControllerPacketReceived(pck Packet, controller *Controller) error {
-	if pool.OnControllerPacketReceived != nil {
-		return pool.OnControllerPacketReceived(pck, controller)
-	}
-	return nil
 }

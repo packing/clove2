@@ -13,13 +13,15 @@ const (
 	PacketTypeBinary = "binary"
 	PacketTypeText   = "text"
 	PacketTypeHTTP   = "http"
+	PacketTypePing   = "ping"
 
 	PacketMaxLength = 0xFFFFFF
 
-	ErrorPacketUnsupported = "Package format not supported."
-	ErrorDataNotReady      = "The data does not ready."
-	ErrorDataNotMatch      = "The data does not match any supported format."
-	ErrorDataIsDamage      = "The data length does not match."
+	ErrorPacketUnsupported   = "Package format not supported"
+	ErrorDataNotReady        = "The data does not ready"
+	ErrorDataNotMatch        = "The data does not match any supported format"
+	ErrorDataIsDamage        = "The data length does not match"
+	ErrorClientReqDisconnect = "The client requested to disconnect"
 )
 
 type Packet interface {
@@ -48,9 +50,11 @@ type HTTPPacket struct {
 	HTTPVer        string
 }
 
+type PingPacket struct {
+	Data []byte
+}
+
 type PacketParser interface {
-	//TryParse([]byte) (error, bool)
-	//Prepare([]byte) (error, int, byte, byte, []byte)
 	TestMatchScore(base.Buffer) int
 	ParseFromBytes([]byte) (error, Packet, int)
 	ParseFromBuffer(base.Buffer) (error, []Packet)
@@ -58,6 +62,11 @@ type PacketParser interface {
 
 type PacketPackager interface {
 	Package(Packet) (error, []byte)
+}
+
+type PacketPreprocessor interface {
+	HandshakeAck(base.Buffer) (error, []byte)
+	Farewell() []byte
 }
 
 type PacketProcessor interface {
@@ -68,11 +77,13 @@ type PacketProcessor interface {
 }
 
 type PacketFormat struct {
-	Tag      string
-	Priority int
-	Type     string
-	Parser   PacketParser
-	Packager PacketPackager
+	Tag          string
+	Priority     int
+	Type         string
+	Default      bool
+	Parser       PacketParser
+	Packager     PacketPackager
+	Preprocessor PacketPreprocessor
 }
 
 func (b *BinaryPacket) GetType() string {
@@ -87,9 +98,14 @@ func (t *HTTPPacket) GetType() string {
 	return PacketTypeHTTP
 }
 
+func (t *PingPacket) GetType() string {
+	return PacketTypePing
+}
+
 type PacketFormatManager struct {
 	mapFormats    map[string]*PacketFormat
 	sortedFormats []*PacketFormat
+	filters       []string
 }
 
 var instFormatManager *PacketFormatManager
@@ -100,14 +116,31 @@ func GetPacketFormatManager() *PacketFormatManager {
 		instFormatManager = &PacketFormatManager{}
 		instFormatManager.mapFormats = make(map[string]*PacketFormat)
 		instFormatManager.sortedFormats = make([]*PacketFormat, 0)
-		instFormatManager.AddPacketFormat(&ClovePacketFormat)
-		instFormatManager.AddPacketFormat(&HTTPPacketFormat)
+		instFormatManager.AddPacketFormat(ClovePacketFormat)
+		instFormatManager.AddPacketFormat(HTTPPacketFormat)
+		instFormatManager.AddPacketFormat(TextPacketFormat)
+		instFormatManager.AddPacketFormat(WSBPacketFormat)
 
 		sort.Slice(instFormatManager.sortedFormats, func(i, j int) bool {
 			return instFormatManager.sortedFormats[i].Priority < instFormatManager.sortedFormats[j].Priority
 		})
 	})
 	return instFormatManager
+}
+
+func NewPacketFormatManager(formats ...string) *PacketFormatManager {
+	inst := new(PacketFormatManager)
+	inst.mapFormats = make(map[string]*PacketFormat)
+	inst.sortedFormats = make([]*PacketFormat, 0)
+	for _, tag := range formats {
+		format := GetPacketFormatManager().FindPacketFormat(tag)
+		if format != nil {
+			inst.AddPacketFormat(format)
+		} else {
+			base.LogError("PacketFormat '%s' not found", strings.ToLower(tag))
+		}
+	}
+	return inst
 }
 
 func (f *PacketFormatManager) AddPacketFormat(format *PacketFormat) {
@@ -126,14 +159,25 @@ func (f PacketFormatManager) FindPacketFormat(tag string) *PacketFormat {
 func (f PacketFormatManager) DetermineFromBuffer(buf base.Buffer) *PacketFormat {
 	var scorePrev = -1
 	var dstPf *PacketFormat
+	var defPf *PacketFormat
 	for _, pf := range f.sortedFormats {
+		if pf.Default {
+			defPf = pf
+			continue
+		}
 		score := pf.Parser.TestMatchScore(buf)
 		if score == 100 {
 			return pf
 		}
 		if score > scorePrev {
 			dstPf = pf
+			scorePrev = score
 		}
 	}
-	return dstPf
+	if scorePrev < 0 {
+		return defPf
+	} else if scorePrev >= 90 {
+		return dstPf
+	}
+	return nil
 }

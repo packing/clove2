@@ -26,11 +26,10 @@ type ConnectionProcessor interface {
 }
 
 type ControllerManager interface {
-	GetPacketFormat() *PacketFormat
+	GetPacketFormatManager() *PacketFormatManager
 	GetPacketProcessor() PacketProcessor
 	SetPacketProcessor(PacketProcessor)
 	ControllerEnter(*Controller) <-chan error
 	ControllerLeave(*Controller)
-	ControllerClosing(*Controller)
 	ControllerPacketReceived(Packet, *Controller) error
 }

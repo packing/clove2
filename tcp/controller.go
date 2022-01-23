@@ -37,14 +37,18 @@ type Controller struct {
 	totalRPcks  int64
 	totalSPcks  int64
 
+	aliveChecking   bool
+	packetFmtMgr    *PacketFormatManager
 	packetFmt       *PacketFormat
 	packetProcessor PacketProcessor
 	manager         ControllerManager
 	waitg           *sync.WaitGroup
-	queueSend       base.ChannelQueue
 	bufRecv         *base.StandardBuffer
+	bufSend         *base.SyncBuffer
 	chReceived      base.ChannelQueue
 	timeOfBirth     time.Time
+	chClosed        chan bool
+	chSend          chan int
 }
 
 const (
@@ -70,29 +74,32 @@ func CreateController(conn net.Conn, m ControllerManager, packetProcessor Packet
 	if seed == 0 {
 		return nil
 	}
+	_ = tc.SetLinger(-1)
+	_ = tc.SetNoDelay(true)
 	c := new(Controller)
 	c.flag = cFlagOpened
+	c.aliveChecking = true
 	c.timeOfBirth = time.Now()
 	c.sessionId, ok = <-base.GetIdGenerator().NextIdWithSeed(seed)
 	c.conn = conn
 	c.manager = m
-	c.packetFmt = c.manager.GetPacketFormat()
-	if c.packetFmt != nil {
-		c.setReadyedFlag()
-	}
+	c.packetFmt = nil
+	c.packetFmtMgr = c.manager.GetPacketFormatManager()
 	c.packetProcessor = c.manager.GetPacketProcessor()
 	if packetProcessor != nil {
 		c.packetProcessor = packetProcessor
 	}
-	c.queueSend = make(base.ChannelQueue)
+	c.bufSend = new(base.SyncBuffer)
 	c.bufRecv = new(base.StandardBuffer)
 	c.chReceived = make(base.ChannelQueue, 32)
+	c.chClosed = make(chan bool)
+	c.chSend = make(chan int)
 	c.process()
 	return c
 }
 
-func (controller *Controller) GetId() *base.CloveId {
-	return &controller.sessionId
+func (controller *Controller) GetId() base.CloveId {
+	return controller.sessionId
 }
 
 func (controller *Controller) GetPacketProcessor() PacketProcessor {
@@ -135,10 +142,23 @@ func (controller *Controller) parsePacket() error {
 		}
 		controller.ReceivePackets(pcks...)
 	} else {
-		controller.packetFmt = GetPacketFormatManager().DetermineFromBuffer(controller.bufRecv)
+		pfMgr := controller.packetFmtMgr
+		if pfMgr == nil {
+			pfMgr = GetPacketFormatManager()
+		}
+		controller.packetFmt = pfMgr.DetermineFromBuffer(controller.bufRecv)
 		if controller.packetFmt != nil {
-			controller.setReadyedFlag()
-			return controller.parsePacket()
+			if controller.packetFmt.Preprocessor != nil {
+				err, ack := controller.packetFmt.Preprocessor.HandshakeAck(controller.bufRecv)
+				if err != nil {
+					return err
+				}
+				controller.SendBytes(ack)
+				controller.setReadyedFlag()
+			} else {
+				controller.setReadyedFlag()
+				return controller.parsePacket()
+			}
 		}
 	}
 	return nil
@@ -153,51 +173,57 @@ func (controller *Controller) setDataReceivedFlag() {
 func (controller *Controller) setReadyedFlag() {
 	if base.TestMask(controller.flag, cFlagOpened) && !base.TestMask(controller.flag, cFlagReadyed) {
 		controller.flag |= cFlagReadyed
-		base.LogVerbose("Determine PacketFormat => %s", controller.packetFmt.Tag)
+		controller.aliveChecking = false
+		base.LogVerbose("Determine PacketFormat => %s (%d)", controller.packetFmt.Tag, controller.GetId().Integer())
 	}
 }
 
-func (controller *Controller) CheckTimeout() {
+func (controller *Controller) forceClose() {
+	if controller.packetFmt != nil && controller.packetFmt.Preprocessor != nil {
+		fw := controller.packetFmt.Preprocessor.Farewell()
+		if fw != nil && len(fw) > 0 {
+			_ = controller.conn.SetWriteDeadline(time.Now().Add(timeoutWrited))
+			_, _ = controller.conn.Write(fw)
+			base.LogVerbose("Farewell Data %d (%d)", len(fw), controller.GetId().Integer())
+		}
+	}
+	t, _ := controller.conn.(*net.TCPConn)
+	_ = t.CloseRead()
+	_ = t.Close()
+}
+
+func (controller *Controller) ExitAndNotify() {
+	base.LogVerbose("ExitAndNotify %d", controller.GetId().Integer())
 	if base.TestMask(controller.flag, cFlagOpened) {
+		controller.aliveChecking = false
+		controller.forceClose()
+		go func() {
+			controller.chClosed <- true
+		}()
+	}
+}
 
-		if !base.TestMask(controller.flag, cFlagDataReceived) {
-			if time.Now().Sub(controller.timeOfBirth) > timeoutReceived {
-				controller.Close()
-			}
-		}
-
-		if !base.TestMask(controller.flag, cFlagReadyed) {
-			if time.Now().Sub(controller.timeOfBirth) > timeoutDeterminePacketFormat {
-				controller.Close()
-			}
-		}
-
+func (controller *Controller) Exit() {
+	base.LogVerbose("Exit %d", controller.GetId().Integer())
+	if base.TestMask(controller.flag, cFlagOpened) {
+		controller.aliveChecking = false
+		controller.forceClose()
 	}
 }
 
 func (controller *Controller) Close() {
-	if base.TestMask(controller.flag, cFlagOpened) {
-		//controller.manager.ControllerClosing(controller)
-		controller.manager.ControllerLeave(controller)
-		_ = controller.conn.Close()
-		controller.queueSend.Close()
+	//base.LogVerbose("Close")
+	if base.TestMask(controller.flag, cFlagClosing) {
+		controller.bufRecv.Reset()
+		controller.bufSend.Reset()
 		controller.chReceived.Close()
+		close(controller.chSend)
+		close(controller.chClosed)
 		controller.waitg.Wait()
 		controller.flag = cFlagClosed
-	}
-}
-
-func (controller *Controller) CheckAlive() bool {
-	if controller.flag == cFlagClosing {
 		controller.manager.ControllerLeave(controller)
-		_ = controller.conn.Close()
-		controller.queueSend.Close()
-		controller.chReceived.Close()
-		controller.waitg.Wait()
-		controller.flag = cFlagClosed
-		return false
+		controller.manager = nil
 	}
-	return base.TestMask(controller.flag, cFlagOpened)
 }
 
 func (controller *Controller) SendBytes(sendBytes []byte) bool {
@@ -209,7 +235,13 @@ func (controller *Controller) SendBytes(sendBytes []byte) bool {
 		return false
 	}
 
-	go func() { controller.queueSend <- sendBytes }()
+	n, err := controller.bufSend.Write(sendBytes)
+	if err != nil || n != len(sendBytes) {
+		controller.Exit()
+		return false
+	}
+
+	controller.chSend <- len(sendBytes)
 
 	return true
 }
@@ -229,19 +261,21 @@ func (controller *Controller) SendPacketsAndClose(close bool, sendPcks ...Packet
 
 	go func() {
 		for _, pck := range sendPcks {
-			var fmtPck = GetPacketFormatManager().FindPacketFormat(pck.GetType())
+			var fmtPck = controller.packetFmt
+			if fmtPck == nil {
+				fmtPck = GetPacketFormatManager().FindPacketFormat(pck.GetType())
+			}
 			if fmtPck != nil {
 				err, raw := fmtPck.Packager.Package(pck)
 				if err == nil {
-					controller.queueSend <- raw
+					controller.SendBytes(raw)
 				}
 			}
 		}
 		if close {
-			controller.queueSend <- make([]byte, 0)
+			controller.SendBytes([]byte(""))
 		}
 	}()
-
 	return true
 }
 
@@ -254,15 +288,20 @@ func (controller *Controller) ReceivePackets(pcks ...Packet) {
 		return
 	}
 
-	//go func() {
-	for _, pck := range pcks {
-		controller.chReceived <- pck
-	}
-	//}()
+	go func() {
+		defer func() {
+			recover()
+		}()
+		for _, pck := range pcks {
+			controller.chReceived <- pck
+		}
+	}()
 }
 
 func (controller *Controller) processRead() {
 	defer func() {
+		base.LogVerbose("The connection %d (%s) stops reading.", controller.GetId().Integer(), controller.GetRemoteHostName())
+		controller.waitg.Done()
 		base.LogPanic(recover())
 	}()
 	controller.waitg.Add(1)
@@ -274,7 +313,7 @@ func (controller *Controller) processRead() {
 		if err == nil && n > 0 {
 			_, err = controller.bufRecv.Write(buf[:n])
 			if err != nil {
-				controller.Close()
+				controller.ExitAndNotify()
 				break
 			}
 			controller.setDataReceivedFlag()
@@ -282,182 +321,130 @@ func (controller *Controller) processRead() {
 			if err != nil {
 				base.LogError("The connection %d (%s) will be closed because of a data problem.", controller.GetId().Integer(), controller.GetRemoteHostName())
 				base.LogVerbose("The full stack:\n\n%+v\n\n", err)
-				controller.Close()
+				controller.ExitAndNotify()
 				break
 			}
 			atomic.AddInt64(&controller.totalRBytes, int64(n))
 		}
 		if err != nil || n == 0 {
-			controller.Close()
+			controller.ExitAndNotify()
 			break
 		}
 	}
-
-	controller.waitg.Done()
 }
 
-func (controller *Controller) processWrite() {
+func (controller *Controller) tryAlive() {
 	defer func() {
+		controller.waitg.Done()
 		base.LogPanic(recover())
 	}()
 	controller.waitg.Add(1)
-
-	for {
-		isentBytes, ok := <-controller.queueSend
-		if ok {
-			sentBytes, ok := isentBytes.([]byte)
-			if ok {
-				if len(sentBytes) == 0 {
-					controller.Close()
-					break
-				}
-				for {
-					e := controller.conn.SetWriteDeadline(time.Now().Add(timeoutWrited))
-					if e != nil {
-						controller.Close()
-						break
-					}
-					n, e := controller.conn.Write(sentBytes)
-					if e != nil {
-						controller.Close()
-						break
-					}
-					if n < len(sentBytes) {
-						sentBytes = sentBytes[n:]
-						continue
-					}
-					break
-				}
+	for controller.aliveChecking {
+		if !base.TestMask(controller.flag, cFlagDataReceived) {
+			if time.Now().Sub(controller.timeOfBirth) > timeoutReceived {
+				base.LogVerbose("Waiting for data timeout. %d (%s)", controller.GetId().Integer(), controller.GetRemoteHostName())
+				controller.Exit()
+				break
+			}
+		} else if !base.TestMask(controller.flag, cFlagReadyed) {
+			if time.Now().Sub(controller.timeOfBirth) > timeoutDeterminePacketFormat {
+				base.LogVerbose("Identify protocol timeout.", controller.flag)
+				controller.Exit()
+				break
 			}
 		} else {
 			break
 		}
-	}
-	base.LogVerbose("The connection %d (%s) - Write-process Exited.", controller.GetId().Integer(), controller.GetRemoteHostName())
-	controller.waitg.Done()
-}
-
-func (controller *Controller) processData() {
-	defer func() {
-		base.LogPanic(recover())
-	}()
-	controller.waitg.Add(1)
-
-	for {
-		iReceived, ok := <-controller.chReceived
-		if !ok {
-			break
-		}
-		pckReceived, ok := iReceived.(Packet)
-		if !ok || pckReceived == nil {
-			base.LogVerbose("A error value [%s] on [processData].", iReceived)
-			continue
-		}
-
-		err := controller.manager.ControllerPacketReceived(pckReceived, controller)
-		if err != nil {
-			base.LogError("The connection %d (%s) will be closed because of '%s'.", controller.GetId().Integer(), controller.GetRemoteHostName(), err.Error())
-			base.LogVerbose("The full stack:\n\n%+v\n\n", err)
-			controller.Close()
-		}
-
+		time.Sleep(time.Millisecond * 500)
 	}
 
-	controller.waitg.Done()
 }
 
-func (controller *Controller) process1() {
-	controller.waitg = new(sync.WaitGroup)
-	go controller.processRead()
-	go controller.processWrite()
-	go controller.processData()
-
-}
-
-func (controller *Controller) tryRead(dstBuf *[]byte) <-chan error {
-	var iv = make(chan error)
-	go func() {
-		var buf = make([]byte, 512)
-		n, err := controller.conn.Read(buf)
-		if err != nil {
-			iv <- err
-		}
-		buf = buf[:n]
-		dstBuf = &buf
-		iv <- nil
-	}()
-
-	return iv
-}
 func (controller *Controller) process() {
+	controller.waitg = new(sync.WaitGroup)
+
+	go controller.processRead()
+	go controller.tryAlive()
+
 	go func() {
-		var buf []byte
-		select {
-		case err := <-controller.tryRead(&buf):
-			if err == nil {
-				_, err = controller.bufRecv.Write(buf)
-				if err != nil {
-					controller.Close()
-					break
-				}
-				controller.setDataReceivedFlag()
-				err = controller.parsePacket()
-				if err != nil {
-					base.LogError("The connection %d (%s) will be closed because of a data problem.", controller.GetId().Integer(), controller.GetRemoteHostName())
-					base.LogVerbose("The full stack:\n\n%+v\n\n", err)
-					controller.Close()
-					break
-				}
-				atomic.AddInt64(&controller.totalRBytes, int64(len(buf)))
-			} else {
-				controller.Close()
-				break
-			}
-		case isentBytes, ok := <-controller.queueSend:
-			if ok {
-				sentBytes, ok := isentBytes.([]byte)
+		defer func() {
+			base.LogVerbose("The connection %d (%s) stops processing.", controller.GetId().Integer(), controller.GetRemoteHostName())
+
+			controller.waitg.Done()
+			controller.Close()
+		}()
+		controller.waitg.Add(1)
+
+		for base.TestMask(controller.flag, cFlagOpened) {
+			base.LogVerbose("loop >>>>>>>>>")
+			select {
+			case isentBytes, ok := <-controller.chSend:
 				if ok {
+					if isentBytes <= 0 {
+						base.LogVerbose("Connection send close")
+						controller.Exit()
+						break
+					}
+					sentBytes, n := controller.bufSend.Next(isentBytes)
+					if n != isentBytes {
+						controller.Exit()
+						break
+					}
+
 					if len(sentBytes) == 0 {
-						controller.Close()
+						controller.Exit()
 						break
 					}
-					for {
-						e := controller.conn.SetWriteDeadline(time.Now().Add(timeoutWrited))
-						if e != nil {
-							controller.Close()
+
+					if !func() bool {
+						for {
+							e := controller.conn.SetWriteDeadline(time.Now().Add(timeoutWrited))
+							if e != nil {
+								return false
+							}
+							n, e := controller.conn.Write(sentBytes)
+							if e != nil {
+								return false
+							}
+							if n < len(sentBytes) {
+								sentBytes = sentBytes[n:]
+								continue
+							}
+							base.LogVerbose("Connection write %d", n)
 							break
 						}
-						n, e := controller.conn.Write(sentBytes)
-						if e != nil {
-							controller.Close()
-							break
-						}
-						if n < len(sentBytes) {
-							sentBytes = sentBytes[n:]
-							continue
-						}
+						return true
+					}() {
+						controller.Exit()
+						break
+					}
+				} else {
+					controller.Exit()
+					break
+				}
+			case iReceived, ok := <-controller.chReceived:
+				pckReceived, ok := iReceived.(Packet)
+				if !ok || pckReceived == nil {
+					base.LogVerbose("A error value [%s] on [processData].", iReceived)
+					controller.Exit()
+					break
+				} else {
+					err := controller.manager.ControllerPacketReceived(pckReceived, controller)
+					if err != nil {
+						base.LogError("The connection %d (%s) will be closed because of '%s'.", controller.GetId().Integer(), controller.GetRemoteHostName(), err.Error())
+						base.LogVerbose("The full stack:\n\n%+v\n\n", err)
+						controller.Exit()
 						break
 					}
 				}
-			} else {
-				controller.Close()
-				break
-			}
-		case iReceived, ok := <-controller.chReceived:
-			pckReceived, ok := iReceived.(Packet)
-			if !ok || pckReceived == nil {
-				base.LogVerbose("A error value [%s] on [processData].", iReceived)
-				controller.Close()
-				break
-			} else {
-				err := controller.manager.ControllerPacketReceived(pckReceived, controller)
-				if err != nil {
-					base.LogError("The connection %d (%s) will be closed because of '%s'.", controller.GetId().Integer(), controller.GetRemoteHostName(), err.Error())
-					base.LogVerbose("The full stack:\n\n%+v\n\n", err)
-					controller.Close()
+
+			case closed, ok := <-controller.chClosed:
+				if !ok || closed {
+					controller.flag = cFlagClosing
+					break
 				}
+
 			}
 		}
-
 	}()
 }
