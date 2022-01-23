@@ -141,14 +141,25 @@ func (pool *StandardPool) Close() {
 	})
 }
 
-func (pool *StandardPool) CloseController(id *base.CloveId) {
-	ic, ok := pool.controllers.Load(id.Integer())
+func (pool *StandardPool) CloseController(id int64) {
+	ic, ok := pool.controllers.Load(id)
 	if ok && ic != nil {
 		c, ok := ic.(*Controller)
 		if ok {
 			c.Exit()
 		}
 	}
+}
+
+func (pool *StandardPool) GetController(id int64) *Controller {
+	ic, ok := pool.controllers.Load(id)
+	if ok && ic != nil {
+		c, ok := ic.(*Controller)
+		if ok {
+			return c
+		}
+	}
+	return nil
 }
 
 func (pool *StandardPool) GetPacketFormatManager() *PacketFormatManager {
