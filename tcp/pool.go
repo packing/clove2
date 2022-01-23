@@ -141,7 +141,7 @@ func (pool *StandardPool) Close() {
 	})
 }
 
-func (pool *StandardPool) CloseController(id int64) {
+func (pool *StandardPool) CloseController(id uint64) {
 	ic, ok := pool.controllers.Load(id)
 	if ok && ic != nil {
 		c, ok := ic.(*Controller)
@@ -151,7 +151,7 @@ func (pool *StandardPool) CloseController(id int64) {
 	}
 }
 
-func (pool *StandardPool) GetController(id int64) *Controller {
+func (pool *StandardPool) GetController(id uint64) *Controller {
 	ic, ok := pool.controllers.Load(id)
 	if ok && ic != nil {
 		c, ok := ic.(*Controller)

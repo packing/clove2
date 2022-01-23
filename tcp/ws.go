@@ -168,7 +168,6 @@ func (p *WSPacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 	}
 
 	for {
-		base.LogError("ParseFromBytes 1")
 		fin := data[0] >> 7
 		opCode := data[0] & 0xF
 		if fin == 0 {
@@ -179,11 +178,8 @@ func (p *WSPacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 		if l < 0 || len(data) < l {
 			break
 		}
-		base.LogError("ParseFromBytes 2", h, l)
 
 		payloadData := p.getPayloadData(data, h, l)
-
-		base.LogError("ParseFromBytes 3", opCode)
 
 		data = data[l:]
 		readedLen += l
@@ -348,7 +344,6 @@ func (p *WSPacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 	var err error
 
 	for {
-		base.LogError("ParseFromBuffer Peek", b.Len())
 		in, _ := b.Peek(b.Len())
 		e, pck, l := p.ParseFromBytes(in)
 		if l > 0 {

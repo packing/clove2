@@ -320,7 +320,7 @@ func (controller *Controller) processRead() {
 			err = controller.parsePacket()
 			if err != nil {
 				base.LogError("The connection %d (%s) will be closed because of a data problem.", controller.GetId().Integer(), controller.GetRemoteHostName())
-				base.LogVerbose("The full stack:\n\n%+v\n\n", err)
+				//base.LogVerbose("The full stack:\n\n%+v\n\n", err)
 				controller.ExitAndNotify()
 				break
 			}
@@ -376,7 +376,7 @@ func (controller *Controller) process() {
 		controller.waitg.Add(1)
 
 		for base.TestMask(controller.flag, cFlagOpened) {
-			base.LogVerbose("loop >>>>>>>>>")
+			//base.LogVerbose("loop >>>>>>>>>")
 			select {
 			case isentBytes, ok := <-controller.chSend:
 				if ok {
@@ -432,7 +432,7 @@ func (controller *Controller) process() {
 					err := controller.manager.ControllerPacketReceived(pckReceived, controller)
 					if err != nil {
 						base.LogError("The connection %d (%s) will be closed because of '%s'.", controller.GetId().Integer(), controller.GetRemoteHostName(), err.Error())
-						base.LogVerbose("The full stack:\n\n%+v\n\n", err)
+						//base.LogVerbose("The full stack:\n\n%+v\n\n", err)
 						controller.Exit()
 						break
 					}
