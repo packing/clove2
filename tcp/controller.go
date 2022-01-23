@@ -410,7 +410,7 @@ func (controller *Controller) process() {
 								sentBytes = sentBytes[n:]
 								continue
 							}
-							base.LogVerbose("Connection write %d", n)
+							//base.LogVerbose("Connection write %d", n)
 							break
 						}
 						return true
