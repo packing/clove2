@@ -78,7 +78,7 @@ type PacketProcessor interface {
 
 type PacketFormat struct {
 	Tag          string
-	Priority     int
+	Priority     uint32
 	Type         string
 	Default      bool
 	Parser       PacketParser

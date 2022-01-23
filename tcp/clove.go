@@ -136,7 +136,7 @@ func (p *ClovePacketParser) TestMatchScore(b base.Buffer) int {
 
 	opFlag := int(peekData[0])
 	mask := opFlag & MaskCloveFeature
-	packetLen := int(binary.BigEndian.Uint32(peekData[1:PacketCloveHeaderLength]))
+	packetLen := binary.BigEndian.Uint32(peekData[1:PacketCloveHeaderLength])
 	ptop := byte((packetLen & 0xF0000000) >> 28)
 	ptov := byte((packetLen & 0xF000000) >> 24)
 
@@ -154,7 +154,7 @@ func (p *ClovePacketParser) TestMatchScore(b base.Buffer) int {
 		return score
 	}
 
-	if packetLen > l {
+	if packetLen > uint32(l) {
 		score = 50
 	} else {
 		score = 99
