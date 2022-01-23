@@ -13,7 +13,7 @@ type TextPacketPackager struct {
 
 var TextPacketFormat = &PacketFormat{
 	"text",
-	0xFFFFFFFF,
+	0xFF,
 	"text",
 	true,
 	&TextPacketParser{},

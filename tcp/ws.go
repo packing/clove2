@@ -145,7 +145,7 @@ type WSPacketPackager struct {
 
 var WSBPacketFormat = &PacketFormat{
 	"ws",
-	0xFFFFFFFF,
+	0xFF,
 	"auto",
 	false,
 	&WSPacketParser{},
