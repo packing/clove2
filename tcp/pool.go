@@ -23,7 +23,6 @@ import (
 	"encoding/binary"
 	"net"
 	"sync"
-	"sync/atomic"
 
 	"github.com/packing/clove2/base"
 	"github.com/packing/clove2/errors"
@@ -78,8 +77,52 @@ func CreateStandardPoolWithByteOrder(b binary.ByteOrder, n int, pfs ...string) *
 	return p
 }
 
+func (pool *StandardPool) addTotalNum(n int64) {
+	defer pool.mutex.Unlock()
+	pool.mutex.Lock()
+	pool.total += n
+}
+
+func (pool *StandardPool) addCurrNum(n int32) {
+	defer pool.mutex.Unlock()
+	pool.mutex.Lock()
+	pool.curr += n
+}
+
+func (pool *StandardPool) resetTopNum() {
+	defer pool.mutex.Unlock()
+	pool.mutex.Lock()
+	if pool.curr > pool.top {
+		pool.top = pool.curr
+	}
+}
+
+func (pool *StandardPool) checkLimit() bool {
+	defer pool.mutex.Unlock()
+	pool.mutex.Lock()
+	return pool.limit <= 0 || pool.curr < int32(pool.limit)
+}
+
+func (pool *StandardPool) getCurrNum() int32 {
+	defer pool.mutex.Unlock()
+	pool.mutex.Lock()
+	return pool.curr
+}
+
+func (pool *StandardPool) getTotalNum() int64 {
+	defer pool.mutex.Unlock()
+	pool.mutex.Lock()
+	return pool.total
+}
+
+func (pool *StandardPool) getTopNum() int32 {
+	defer pool.mutex.Unlock()
+	pool.mutex.Lock()
+	return pool.top
+}
+
 func (pool *StandardPool) AddConnection(conn net.Conn, packetProcessor PacketProcessor) error {
-	if pool.limit <= 0 || pool.curr < int32(pool.limit) {
+	if pool.checkLimit() {
 		c := CreateController(conn, pool, packetProcessor)
 		if c == nil {
 			return errors.New("Failed to create controller.")
@@ -90,12 +133,7 @@ func (pool *StandardPool) AddConnection(conn net.Conn, packetProcessor PacketPro
 		}
 		pool.controllers.Store(c.GetId().Integer(), c)
 
-		atomic.AddInt32(&pool.curr, 1)
-		atomic.AddInt64(&pool.total, 1)
-		if pool.curr > pool.top {
-			atomic.StoreInt32(&pool.top, pool.curr)
-		}
-		base.LogVerbose("current/top/total: %d / %d / %d", pool.curr, pool.top, pool.total)
+		base.LogVerbose("current/top/total: %d / %d / %d", pool.getCurrNum(), pool.getTopNum(), pool.getTotalNum())
 
 		return nil
 	} else {
@@ -118,6 +156,7 @@ func (pool *StandardPool) ControllerEnter(controller *Controller) <-chan error {
 
 func (pool *StandardPool) ControllerLeave(controller *Controller) {
 	pool.controllers.Delete(controller.GetId().Integer())
+	pool.addCurrNum(-1)
 	if pool.OnControllerLeave != nil {
 		go pool.OnControllerLeave(controller)
 	}
