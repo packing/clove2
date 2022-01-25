@@ -22,7 +22,6 @@ package tcp
 import (
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/packing/clove2/base"
@@ -324,7 +323,7 @@ func (controller *Controller) processRead() {
 				controller.ExitAndNotify()
 				break
 			}
-			atomic.AddInt64(&controller.totalRBytes, int64(n))
+			//atomic.AddInt64(&controller.totalRBytes, int64(n))
 		}
 		if err != nil || n == 0 {
 			controller.ExitAndNotify()
