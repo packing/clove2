@@ -201,6 +201,17 @@ func (pool *StandardPool) GetController(id uint64) *Controller {
 	return nil
 }
 
+func (pool *StandardPool) Broadcast(pck Packet) {
+	pool.waitg.Wait()
+	pool.controllers.Range(func(key, value interface{}) bool {
+		c, ok := value.(*Controller)
+		if ok {
+			c.SendPackets(pck)
+		}
+		return true
+	})
+}
+
 func (pool *StandardPool) GetPacketFormatManager() *PacketFormatManager {
 	return pool.packetFormatMgr
 }
