@@ -202,7 +202,6 @@ func (pool *StandardPool) GetController(id uint64) *Controller {
 }
 
 func (pool *StandardPool) Broadcast(pck Packet) {
-	pool.waitg.Wait()
 	pool.controllers.Range(func(key, value interface{}) bool {
 		c, ok := value.(*Controller)
 		if ok {
