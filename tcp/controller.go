@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/packing/clove2/base"
+	"github.com/packing/clove2/network"
 )
 
 type Controller struct {
@@ -37,9 +38,9 @@ type Controller struct {
 	totalSPcks  int64
 
 	aliveChecking   bool
-	packetFmtMgr    *PacketFormatManager
-	packetFmt       *PacketFormat
-	packetProcessor PacketProcessor
+	packetFmtMgr    *network.PacketFormatManager
+	packetFmt       *network.PacketFormat
+	packetProcessor network.PacketProcessor
 	manager         ControllerManager
 	waitg           *sync.WaitGroup
 	bufRecv         *base.StandardBuffer
@@ -62,7 +63,7 @@ const (
 	timeoutWrited                = time.Second * 3
 )
 
-func CreateController(conn net.Conn, m ControllerManager, packetProcessor PacketProcessor) *Controller {
+func CreateController(conn net.Conn, m ControllerManager, packetProcessor network.PacketProcessor) *Controller {
 	var seed uint = 0
 	tc, ok := conn.(*net.TCPConn)
 	if ok {
@@ -101,11 +102,11 @@ func (controller *Controller) GetId() base.CloveId {
 	return controller.sessionId
 }
 
-func (controller *Controller) GetPacketProcessor() PacketProcessor {
+func (controller *Controller) GetPacketProcessor() network.PacketProcessor {
 	return controller.packetProcessor
 }
 
-func (controller *Controller) SetPacketProcessor(pp PacketProcessor) {
+func (controller *Controller) SetPacketProcessor(pp network.PacketProcessor) {
 	controller.packetProcessor = pp
 }
 
@@ -143,7 +144,7 @@ func (controller *Controller) parsePacket() error {
 	} else {
 		pfMgr := controller.packetFmtMgr
 		if pfMgr == nil {
-			pfMgr = GetPacketFormatManager()
+			pfMgr = network.GetPacketFormatManager()
 		}
 		controller.packetFmt = pfMgr.DetermineFromBuffer(controller.bufRecv)
 		if controller.packetFmt != nil {
@@ -245,11 +246,11 @@ func (controller *Controller) SendBytes(sendBytes []byte) bool {
 	return true
 }
 
-func (controller *Controller) SendPackets(sendPcks ...Packet) bool {
+func (controller *Controller) SendPackets(sendPcks ...network.Packet) bool {
 	return controller.SendPacketsAndClose(false, sendPcks...)
 }
 
-func (controller *Controller) SendPacketsAndClose(close bool, sendPcks ...Packet) bool {
+func (controller *Controller) SendPacketsAndClose(close bool, sendPcks ...network.Packet) bool {
 	defer func() {
 		base.LogPanic(recover())
 	}()
@@ -262,7 +263,7 @@ func (controller *Controller) SendPacketsAndClose(close bool, sendPcks ...Packet
 		for _, pck := range sendPcks {
 			var fmtPck = controller.packetFmt
 			if fmtPck == nil {
-				fmtPck = GetPacketFormatManager().FindPacketFormat(pck.GetType())
+				fmtPck = network.GetPacketFormatManager().FindPacketFormat(pck.GetType())
 			}
 			if fmtPck != nil {
 				err, raw := fmtPck.Packager.Package(pck)
@@ -278,7 +279,7 @@ func (controller *Controller) SendPacketsAndClose(close bool, sendPcks ...Packet
 	return true
 }
 
-func (controller *Controller) ReceivePackets(pcks ...Packet) {
+func (controller *Controller) ReceivePackets(pcks ...network.Packet) {
 	defer func() {
 		base.LogPanic(recover())
 	}()
@@ -422,7 +423,7 @@ func (controller *Controller) process() {
 					break
 				}
 			case iReceived, ok := <-controller.chReceived:
-				pckReceived, ok := iReceived.(Packet)
+				pckReceived, ok := iReceived.(network.Packet)
 				if !ok || pckReceived == nil {
 					base.LogVerbose("A error value [%s] on [processData].", iReceived)
 					controller.Exit()

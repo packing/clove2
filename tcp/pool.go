@@ -26,19 +26,20 @@ import (
 
 	"github.com/packing/clove2/base"
 	"github.com/packing/clove2/errors"
+	"github.com/packing/clove2/network"
 )
 
 // StandardPool           TCP-StandardPool class
 type StandardPool struct {
 	byteOrder       binary.ByteOrder
-	packetFormatMgr *PacketFormatManager
-	packetProcessor PacketProcessor
+	packetFormatMgr *network.PacketFormatManager
+	packetProcessor network.PacketProcessor
 
 	OnControllerEnter func(*Controller) error
 	OnControllerLeave func(*Controller)
 
 	//注意，此处在目标连接的主逻辑线程内，里面任何可能导致挂起的调用都必须go
-	OnControllerPacketReceived func(Packet, *Controller) error
+	OnControllerPacketReceived func(network.Packet, *Controller) error
 
 	limit int
 	top   int32
@@ -55,7 +56,7 @@ type StandardPool struct {
 func CreateStandardPool(pfs ...string) *StandardPool {
 	p := new(StandardPool)
 	if len(pfs) > 0 {
-		p.packetFormatMgr = NewPacketFormatManager(pfs...)
+		p.packetFormatMgr = network.NewPacketFormatManager(pfs...)
 	}
 	p.limit = -1
 	p.controllers = new(sync.Map)
@@ -121,7 +122,7 @@ func (pool *StandardPool) getTopNum() int32 {
 	return pool.top
 }
 
-func (pool *StandardPool) AddConnection(conn net.Conn, packetProcessor PacketProcessor) error {
+func (pool *StandardPool) AddConnection(conn net.Conn, packetProcessor network.PacketProcessor) error {
 	if pool.checkLimit() {
 		c := CreateController(conn, pool, packetProcessor)
 		if c == nil {
@@ -162,7 +163,7 @@ func (pool *StandardPool) ControllerLeave(controller *Controller) {
 	}
 }
 
-func (pool *StandardPool) ControllerPacketReceived(pck Packet, controller *Controller) error {
+func (pool *StandardPool) ControllerPacketReceived(pck network.Packet, controller *Controller) error {
 	if pool.OnControllerPacketReceived != nil {
 		return pool.OnControllerPacketReceived(pck, controller)
 	}
@@ -201,7 +202,7 @@ func (pool *StandardPool) GetController(id uint64) *Controller {
 	return nil
 }
 
-func (pool *StandardPool) Broadcast(pck Packet) {
+func (pool *StandardPool) Broadcast(pck network.Packet) {
 	pool.controllers.Range(func(key, value interface{}) bool {
 		c, ok := value.(*Controller)
 		if ok {
@@ -211,14 +212,23 @@ func (pool *StandardPool) Broadcast(pck Packet) {
 	})
 }
 
-func (pool *StandardPool) GetPacketFormatManager() *PacketFormatManager {
+func (pool *StandardPool) Multicast(pck network.Packet, ids ...uint64) {
+	for _, id := range ids {
+		c := pool.GetController(id)
+		if c != nil {
+			c.SendPackets(pck)
+		}
+	}
+}
+
+func (pool *StandardPool) GetPacketFormatManager() *network.PacketFormatManager {
 	return pool.packetFormatMgr
 }
 
-func (pool *StandardPool) GetPacketProcessor() PacketProcessor {
+func (pool *StandardPool) GetPacketProcessor() network.PacketProcessor {
 	return pool.packetProcessor
 }
 
-func (pool *StandardPool) SetPacketProcessor(pp PacketProcessor) {
+func (pool *StandardPool) SetPacketProcessor(pp network.PacketProcessor) {
 	pool.packetProcessor = pp
 }

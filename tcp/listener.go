@@ -23,6 +23,7 @@ import (
 	"net"
 
 	"github.com/packing/clove2/base"
+	"github.com/packing/clove2/network"
 )
 
 // Listener           TCP-Listener class
@@ -38,7 +39,7 @@ func CreateListener() *Listener {
 	return listener
 }
 
-func (listener Listener) Start(addr string, processor ConnectionProcessor, packetProcessor PacketProcessor) error {
+func (listener Listener) Start(addr string, processor ConnectionProcessor, packetProcessor network.PacketProcessor) error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return err

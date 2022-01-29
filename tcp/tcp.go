@@ -19,17 +19,21 @@
 
 package tcp
 
-import "net"
+import (
+	"net"
+
+	"github.com/packing/clove2/network"
+)
 
 type ConnectionProcessor interface {
-	AddConnection(net.Conn, PacketProcessor) error
+	AddConnection(net.Conn, network.PacketProcessor) error
 }
 
 type ControllerManager interface {
-	GetPacketFormatManager() *PacketFormatManager
-	GetPacketProcessor() PacketProcessor
-	SetPacketProcessor(PacketProcessor)
+	GetPacketFormatManager() *network.PacketFormatManager
+	GetPacketProcessor() network.PacketProcessor
+	SetPacketProcessor(network.PacketProcessor)
 	ControllerEnter(*Controller) <-chan error
 	ControllerLeave(*Controller)
-	ControllerPacketReceived(Packet, *Controller) error
+	ControllerPacketReceived(network.Packet, *Controller) error
 }

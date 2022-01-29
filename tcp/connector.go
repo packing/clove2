@@ -23,6 +23,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/packing/clove2/network"
 )
 
 // Listener           TCP-Connector class
@@ -38,7 +40,7 @@ func CreateConnector() *Connector {
 }
 
 // try to connect to the specified address within a timeout time.
-func (connector Connector) ConnectWithTimeout(addr string, timeout time.Duration, processor ConnectionProcessor, packetProcessor PacketProcessor) error {
+func (connector Connector) ConnectWithTimeout(addr string, timeout time.Duration, processor ConnectionProcessor, packetProcessor network.PacketProcessor) error {
 	conn, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
 		return err
@@ -53,7 +55,7 @@ func (connector Connector) ConnectWithTimeout(addr string, timeout time.Duration
 }
 
 // try to connect to the specified address within 30 seconds.
-func (connector Connector) Connect(addr string, processor ConnectionProcessor, packetProcessor PacketProcessor) error {
+func (connector Connector) Connect(addr string, processor ConnectionProcessor, packetProcessor network.PacketProcessor) error {
 	_, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return err
