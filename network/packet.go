@@ -29,6 +29,7 @@ type Packet interface {
 }
 
 type BinaryPacket struct {
+	From            string
 	Encrypted       bool
 	Compressed      bool
 	ProtocolType    byte
@@ -38,6 +39,7 @@ type BinaryPacket struct {
 }
 
 type TextPacket struct {
+	From string
 	Text string
 }
 
