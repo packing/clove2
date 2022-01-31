@@ -108,11 +108,10 @@ func (p *ClovePacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 		err, pck, _ := p.ParseFromBytes(in)
 
 		if err != nil {
+			if err.Error() == ErrorDataNotReady {
+				return nil, pcks
+			}
 			return err, pcks
-		}
-
-		if err.Error() == ErrorDataNotReady {
-			return nil, pcks
 		}
 
 		pcks = append(pcks, pck)
