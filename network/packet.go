@@ -133,6 +133,7 @@ func GetPacketFormatManager() *PacketFormatManager {
 		instFormatManager.AddPacketFormat(HTTPPacketFormat)
 		instFormatManager.AddPacketFormat(TextPacketFormat)
 		instFormatManager.AddPacketFormat(WSBPacketFormat)
+		instFormatManager.AddPacketFormat(FdPacketFormat)
 
 		sort.Slice(instFormatManager.sortedFormats, func(i, j int) bool {
 			return instFormatManager.sortedFormats[i].Priority < instFormatManager.sortedFormats[j].Priority
@@ -174,6 +175,9 @@ func (f PacketFormatManager) DetermineFromBuffer(buf base.Buffer) *PacketFormat 
 	var dstPf *PacketFormat
 	var defPf *PacketFormat
 	for _, pf := range f.sortedFormats {
+		if pf.Type == PacketTypeUnixMsg {
+			continue
+		}
 		if pf.Default {
 			defPf = pf
 			continue
