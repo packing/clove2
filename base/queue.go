@@ -4,6 +4,7 @@ type ChannelQueue chan interface{}
 
 func (c ChannelQueue) Close() {
 	defer func() {
+		LogVerbose("ChannelQueue closed.")
 		LogPanic(recover())
 	}()
 
@@ -12,7 +13,7 @@ func (c ChannelQueue) Close() {
 		case _ = <-c:
 		default:
 			close(c)
-			break
+			return
 		}
 	}
 	//close(c)
