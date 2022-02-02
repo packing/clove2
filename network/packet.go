@@ -10,10 +10,11 @@ import (
 )
 
 const (
-	PacketTypeBinary = "binary"
-	PacketTypeText   = "text"
-	PacketTypeHTTP   = "http"
-	PacketTypePing   = "ping"
+	PacketTypeBinary  = "binary"
+	PacketTypeText    = "text"
+	PacketTypeHTTP    = "http"
+	PacketTypePing    = "ping"
+	PacketTypeUnixMsg = "unixmsg"
 
 	PacketMaxLength = 0xFFFFFF
 
@@ -108,6 +109,10 @@ func (t *HTTPPacket) GetType() string {
 
 func (t *PingPacket) GetType() string {
 	return PacketTypePing
+}
+
+func (t *UnixMsgPacket) GetType() string {
+	return PacketTypeUnixMsg
 }
 
 type PacketFormatManager struct {
