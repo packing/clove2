@@ -6,5 +6,14 @@ func (c ChannelQueue) Close() {
 	defer func() {
 		LogPanic(recover())
 	}()
-	close(c)
+
+	for {
+		select {
+		case _ = <-c:
+		default:
+			close(c)
+			break
+		}
+	}
+	//close(c)
 }
