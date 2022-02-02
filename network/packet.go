@@ -56,6 +56,12 @@ type PingPacket struct {
 	Data []byte
 }
 
+type UnixMsgPacket struct {
+	Addr string
+	B    []byte
+	OOB  []byte
+}
+
 type PacketParser interface {
 	TestMatchScore(base.Buffer) int
 	ParseFromBytes([]byte) (error, Packet, int)
