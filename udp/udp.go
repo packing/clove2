@@ -41,7 +41,7 @@ func CreateFragmentPipeline(addr string, packetFmt *network.PacketFormat) *Fragm
 	return frags
 }
 
-func (p *FragmentPipeline) addFragment(fragment *Fragment) {
+func (p *FragmentPipeline) AddFragment(fragment *Fragment) {
 	p.fragments[fragment.Idx] = fragment
 	if p.count != fragment.Count {
 		p.count = fragment.Count

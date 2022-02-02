@@ -262,7 +262,7 @@ func (c *Controller) read() error {
 				isFrag = false
 			} else {
 				pipeline := c.getPipeline(from.String())
-				pipeline.addFragment(frag)
+				pipeline.AddFragment(frag)
 				isFrag = true
 			}
 		}
