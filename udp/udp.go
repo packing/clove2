@@ -19,10 +19,10 @@ type DatagramManager interface {
 }
 
 type Fragment struct {
-	length uint16
-	idx    uint16
-	count  uint16
-	data   []byte
+	Length uint16
+	Idx    uint16
+	Count  uint16
+	Data   []byte
 }
 
 type FragmentPipeline struct {
@@ -42,9 +42,9 @@ func CreateFragmentPipeline(addr string, packetFmt *network.PacketFormat) *Fragm
 }
 
 func (p *FragmentPipeline) addFragment(fragment *Fragment) {
-	p.fragments[fragment.idx] = fragment
-	if p.count != fragment.count {
-		p.count = fragment.count
+	p.fragments[fragment.Idx] = fragment
+	if p.count != fragment.Count {
+		p.count = fragment.Count
 	}
 }
 
@@ -63,12 +63,25 @@ func (p *FragmentPipeline) Combine() ([]network.Packet, error) {
 		if !ok {
 			return nil, errors.Errorf(ErrorDataFragmentCorrupted)
 		}
-		_, _ = buf.Write(frag.data)
+		base.LogVerbose("合并分片数据 =>", frag.Data)
+		_, _ = buf.Write(frag.Data)
 	}
+
+	peek, _ := buf.Peek(buf.Len())
+	base.LogVerbose("读取完整数据 =>", peek)
 
 	err, pcks := p.packetFmt.Parser.ParseFromBuffer(buf)
 	if err != nil {
 		return nil, err
 	}
-	return pcks, nil
+
+	topcks := make([]network.Packet, len(pcks))
+	for i, pck := range pcks {
+		bin, ok := pck.(*network.BinaryPacket)
+		if ok {
+			bin.From = p.addr
+			topcks[i] = bin
+		}
+	}
+	return topcks, nil
 }
