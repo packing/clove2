@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"net"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/packing/clove2/base"
@@ -94,6 +95,8 @@ func (c *Controller) Close() {
 		base.LogError("close socket error >", e)
 	}
 	c.waitg.Wait()
+
+	_ = syscall.Unlink(c.addr)
 }
 
 func (c *Controller) GetPacketProcessor() network.PacketProcessor {
