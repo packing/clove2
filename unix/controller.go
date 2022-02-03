@@ -136,6 +136,11 @@ func (c *Controller) bind() error {
 	if err != nil {
 		return err
 	}
+
+	err = c.conn.SetWriteBuffer(64 * 1024 * 1024)
+	if err != nil {
+		base.LogError("SetWriteBuffer error: ", err)
+	}
 	return nil
 }
 
