@@ -63,12 +63,12 @@ func (p *FragmentPipeline) Combine() ([]network.Packet, error) {
 		if !ok {
 			return nil, errors.Errorf(ErrorDataFragmentCorrupted)
 		}
-		base.LogVerbose("合并分片数据 =>", frag.Data)
+		//base.LogVerbose("合并分片数据 =>", frag.Data)
 		_, _ = buf.Write(frag.Data)
 	}
 
-	peek, _ := buf.Peek(buf.Len())
-	base.LogVerbose("读取完整数据 =>", peek)
+	//peek, _ := buf.Peek(buf.Len())
+	//base.LogVerbose("读取完整数据 =>", peek)
 
 	err, pcks := p.packetFmt.Parser.ParseFromBuffer(buf)
 	if err != nil {
