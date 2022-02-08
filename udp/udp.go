@@ -42,10 +42,20 @@ func CreateFragmentPipeline(addr string, packetFmt *network.PacketFormat) *Fragm
 }
 
 func (p *FragmentPipeline) AddFragment(fragment *Fragment) {
-	p.fragments[fragment.Idx] = fragment
-	if p.count != fragment.Count {
+	_, ok := p.fragments[fragment.Idx]
+	if ok {
+		//存在冲突序号，重新初始化当前序列容器
+		p.fragments = make(map[uint16]*Fragment)
+	}
+
+	if p.count > 0 && p.count != fragment.Count {
+		//序列总数不匹配，重新初始化当前序列容器
+		p.fragments = make(map[uint16]*Fragment)
 		p.count = fragment.Count
 	}
+
+	p.fragments[fragment.Idx] = fragment
+
 }
 
 func (p *FragmentPipeline) Combine() ([]network.Packet, error) {
