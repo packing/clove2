@@ -24,6 +24,7 @@ package codec
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"reflect"
 	"strconv"
@@ -341,6 +342,8 @@ func (receiver EncoderClove) EncodeWithReflectValue(rawValue *reflect.Value) (er
 	defer func() {
 		base.LogPanic(recover())
 	}()
+
+	fmt.Println(rawValue)
 
 	if rawValue == nil || rawValue.IsZero() {
 		rb := make([]byte, 1)
