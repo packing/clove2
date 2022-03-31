@@ -342,7 +342,7 @@ func (receiver EncoderClove) EncodeWithReflectValue(rawValue *reflect.Value) (er
 		base.LogPanic(recover())
 	}()
 
-	if rawValue.IsZero() {
+	if rawValue == nil || rawValue.IsZero() {
 		rb := make([]byte, 1)
 		rb[0] = makeHeader(CloveDataTypeNil, 0)
 		return nil, rb
