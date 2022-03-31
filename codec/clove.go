@@ -24,7 +24,6 @@ package codec
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math"
 	"reflect"
 	"strconv"
@@ -343,9 +342,7 @@ func (receiver EncoderClove) EncodeWithReflectValue(rawValue *reflect.Value) (er
 		base.LogPanic(recover())
 	}()
 
-	fmt.Println(rawValue)
-
-	if rawValue == nil || rawValue.IsZero() {
+	if rawValue == nil || !rawValue.IsValid() {
 		rb := make([]byte, 1)
 		rb[0] = makeHeader(CloveDataTypeNil, 0)
 		return nil, rb
