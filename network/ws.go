@@ -397,7 +397,7 @@ func (p *WSPacketParser) TestMatchScore(b base.Buffer) int {
 	ver := req.Header.Get("Sec-WebSocket-Version")
 	upg := req.Header.Get("Upgrade")
 	cnn := req.Header.Get("Connection")
-	if strings.ToLower(upg) != "websocket" || cnn != "Upgrade" || key == "" || ver == "" {
+	if strings.ToLower(upg) != "websocket" || strings.ToLower(cnn) != "upgrade" || key == "" || ver == "" {
 		return score
 	}
 
