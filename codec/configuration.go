@@ -53,7 +53,7 @@ func (c *ConfigurationReader) ReadString(key string) string {
 
 func (c *ConfigurationReader) ReadInt(key string) int64 {
 	c.load()
-	return c.reader.IntValueOf(key, 0)
+	return c.reader.IntegerNumberOf(key, 0)
 }
 
 func (c *ConfigurationReader) ReadBool(key string) bool {

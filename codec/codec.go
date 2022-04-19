@@ -19,7 +19,9 @@ package codec
 
 import (
 	"encoding/binary"
+	"math"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -266,6 +268,48 @@ func (receiver CloveMapReader) IntValueOf(key interface{}, def int64) int64 {
 	}
 }
 
+func (receiver CloveMapReader) IntegerNumberOf(key interface{}, def int64) int64 {
+	v := receiver.TryReadValue(key)
+	if v == nil {
+		return def
+	}
+	switch v.(type) {
+	case int:
+		return int64(v.(int))
+	case int8:
+		return int64(v.(int8))
+	case int16:
+		return int64(v.(int16))
+	case int32:
+		return int64(v.(int32))
+	case uint64:
+		return int64(v.(uint64))
+	case uint:
+		return int64(v.(uint))
+	case uint8:
+		return int64(v.(uint8))
+	case uint16:
+		return int64(v.(uint16))
+	case uint32:
+		return int64(v.(uint32))
+	case int64:
+		return v.(int64)
+	case float64:
+		return int64(math.Floor(v.(float64)))
+	case float32:
+		return int64(math.Floor(float64(v.(float32))))
+	case string:
+		ir, err := strconv.ParseInt(v.(string), 10, 64)
+		if err == nil {
+			return ir
+		} else {
+			return def
+		}
+	default:
+		return def
+	}
+}
+
 func (receiver CloveMapReader) UintValueOf(key interface{}, def uint64) uint64 {
 	v := receiver.TryReadValue(key)
 	if v == nil {
@@ -369,6 +413,51 @@ func (receiver CloveSliceReader) IntValueOf(index int, def int64) int64 {
 		return int64(v.(uint32))
 	case int64:
 		return v.(int64)
+	default:
+		return def
+	}
+}
+
+func (receiver CloveSliceReader) IntegerNumberOf(index int, def int64) int64 {
+	if index >= len(receiver.List) || index < 0 {
+		return def
+	}
+	v := receiver.List[index]
+	if v == nil {
+		return def
+	}
+	switch v.(type) {
+	case int:
+		return int64(v.(int))
+	case int8:
+		return int64(v.(int8))
+	case int16:
+		return int64(v.(int16))
+	case int32:
+		return int64(v.(int32))
+	case uint64:
+		return int64(v.(uint64))
+	case uint:
+		return int64(v.(uint))
+	case uint8:
+		return int64(v.(uint8))
+	case uint16:
+		return int64(v.(uint16))
+	case uint32:
+		return int64(v.(uint32))
+	case int64:
+		return v.(int64)
+	case float64:
+		return int64(math.Floor(v.(float64)))
+	case float32:
+		return int64(math.Floor(float64(v.(float32))))
+	case string:
+		ir, err := strconv.ParseInt(v.(string), 10, 64)
+		if err == nil {
+			return ir
+		} else {
+			return def
+		}
 	default:
 		return def
 	}
