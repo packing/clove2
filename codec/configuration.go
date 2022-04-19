@@ -60,3 +60,8 @@ func (c *ConfigurationReader) ReadBool(key string) bool {
 	c.load()
 	return c.reader.BoolValueOf(key)
 }
+
+func (c *ConfigurationReader) ReadFloat(key string) float64 {
+	c.load()
+	return c.reader.FloatValueOf(key, 0.0)
+}
