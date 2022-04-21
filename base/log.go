@@ -52,7 +52,7 @@ func LogInit(level int, prefix string) error {
 func getLogIO() (error, io.Writer) {
 	dt := time.Now().Format("2006-01-02")
 	fn := fmt.Sprintf("%s-%s.log", logPrefix, dt)
-	pf, err := os.OpenFile(fn, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0)
+	pf, err := os.OpenFile(fn, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return err, nil
 	}
