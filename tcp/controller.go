@@ -20,6 +20,7 @@
 package tcp
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -192,8 +193,8 @@ func (controller *Controller) forceClose() {
 	_ = t.Close()
 }
 
-func (controller *Controller) ExitAndNotify() {
-	base.LogVerbose("ExitAndNotify %d", controller.GetId().Integer())
+func (controller *Controller) ExitAndNotify(reason string) {
+	base.LogVerbose("ExitAndNotify %d, reason => %s", controller.GetId().Integer(), reason)
 	if base.TestMask(controller.flag, cFlagOpened) {
 		controller.aliveChecking = false
 		controller.forceClose()
@@ -212,7 +213,7 @@ func (controller *Controller) Exit() {
 }
 
 func (controller *Controller) Close() {
-	//base.LogVerbose("Close")
+	base.LogVerbose("Close")
 	if base.TestMask(controller.flag, cFlagClosing) {
 		controller.bufRecv.Reset()
 		controller.bufSend.Reset()
@@ -313,7 +314,7 @@ func (controller *Controller) processRead() {
 		if err == nil && n > 0 {
 			_, err = controller.bufRecv.Write(buf[:n])
 			if err != nil {
-				controller.ExitAndNotify()
+				controller.ExitAndNotify("controller.bufRecv.Write")
 				break
 			}
 			controller.setDataReceivedFlag()
@@ -321,13 +322,13 @@ func (controller *Controller) processRead() {
 			if err != nil {
 				base.LogError("The connection %d (%s) will be closed because of a data problem.", controller.GetId().Integer(), controller.GetRemoteHostName())
 				//base.LogVerbose("The full stack:\n\n%+v\n\n", err)
-				controller.ExitAndNotify()
+				controller.ExitAndNotify("controller.parsePacket")
 				break
 			}
 			//atomic.AddInt64(&controller.totalRBytes, int64(n))
 		}
 		if err != nil || n == 0 {
-			controller.ExitAndNotify()
+			controller.ExitAndNotify(fmt.Sprintf("controller.conn.Read n => %d error => %s", n, err))
 			break
 		}
 	}
