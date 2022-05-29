@@ -21,10 +21,20 @@ func LoadConfiguration(path string) *ConfigurationReader {
 	return c
 }
 
+func LoadConfigurationWithReader(reader *CloveMapReader) *ConfigurationReader {
+	c := new(ConfigurationReader)
+	c.path = ""
+	c.reader = reader
+	return c
+}
+
 func (c *ConfigurationReader) load() {
 	defer func() {
 		base.LogPanic(recover())
 	}()
+	if c.reader != nil {
+		return
+	}
 	c.onceForLazyLoad.Do(func() {
 		confPtr, err := os.Open("conf.json")
 		if err != nil {
