@@ -4,12 +4,13 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"encoding/hex"
-	"github.com/shirou/gopsutil/cpu"
 	"io"
 	"net"
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/shirou/gopsutil/cpu"
 )
 
 type CloveId struct {
