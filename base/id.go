@@ -1,8 +1,14 @@
 package base
 
 import (
+	"crypto/sha1"
 	"encoding/binary"
+	"encoding/hex"
+	"github.com/shirou/gopsutil/cpu"
+	"io"
+	"net"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -82,4 +88,68 @@ func GetIdGenerator() *IdGenerator {
 		instIdGenerator = &IdGenerator{}
 	})
 	return instIdGenerator
+}
+
+type MachineID struct {
+	cpuId  []string
+	hwAddr []string
+}
+
+func GetMachineID() *MachineID {
+	id := new(MachineID)
+	infos, err := cpu.Info()
+	if err == nil {
+		id.cpuId = make([]string, 0)
+		for _, info := range infos {
+			if len(info.PhysicalID) > 0 {
+				id.cpuId = append(id.cpuId, info.PhysicalID)
+			}
+		}
+	} else {
+		id.cpuId = make([]string, 0)
+	}
+
+	nets, err := net.Interfaces()
+	if err == nil {
+		id.hwAddr = make([]string, 0)
+		for _, netinfo := range nets {
+			if len(netinfo.HardwareAddr.String()) > 0 {
+				id.hwAddr = append(id.hwAddr, netinfo.HardwareAddr.String())
+			}
+		}
+	} else {
+		id.hwAddr = make([]string, 0)
+	}
+
+	return id
+}
+
+func (id MachineID) GetHash() []byte {
+	if len(id.cpuId) == 0 || len(id.hwAddr) == 0 {
+		return []byte("")
+	}
+	s := new(strings.Builder)
+	for _, cpuId := range id.cpuId {
+		s.WriteString(cpuId)
+		s.WriteString("|")
+	}
+	for _, hwAddr := range id.hwAddr {
+		s.WriteString(hwAddr)
+		s.WriteString("+")
+	}
+	h := sha1.New()
+	_, _ = io.WriteString(h, s.String())
+	return h.Sum(nil)
+}
+
+func (id MachineID) GetHashString() string {
+	return hex.EncodeToString(id.GetHash())
+}
+
+func (id MachineID) GetCPUID() []string {
+	return id.cpuId
+}
+
+func (id MachineID) GetHWADDR() []string {
+	return id.hwAddr
 }
