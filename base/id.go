@@ -126,7 +126,7 @@ func GetMachineID() *MachineID {
 }
 
 func (id MachineID) GetHash() []byte {
-	if len(id.cpuId) == 0 || len(id.hwAddr) == 0 {
+	if len(id.hwAddr) == 0 {
 		return []byte("")
 	}
 	s := new(strings.Builder)
