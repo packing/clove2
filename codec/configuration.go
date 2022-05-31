@@ -36,7 +36,7 @@ func (c *ConfigurationReader) load() {
 		return
 	}
 	c.onceForLazyLoad.Do(func() {
-		confPtr, err := os.Open("conf.json")
+		confPtr, err := os.Open(c.path)
 		if err != nil {
 			return
 		}
