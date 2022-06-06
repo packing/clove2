@@ -2,6 +2,8 @@
 
 package base
 
+import "fmt"
+
 func Daemon() {
-	LogInfo("Daemons is not supported on Windows.")
+	fmt.Printf("Daemons is not supported on Windows.")
 }

@@ -3,6 +3,7 @@
 package base
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
@@ -18,7 +19,7 @@ func Daemon() {
 
 	err := cmd.Start()
 	if err == nil {
-		LogInfo("Daemon process %d is created successfully.\n", cmd.Process.Pid)
+		fmt.Printf("Daemon process %d is created successfully.\n", cmd.Process.Pid)
 		_ = cmd.Process.Release()
 		os.Exit(0)
 	}
