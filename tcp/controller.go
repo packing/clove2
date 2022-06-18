@@ -111,6 +111,10 @@ func (controller *Controller) SetPacketProcessor(pp network.PacketProcessor) {
 	controller.packetProcessor = pp
 }
 
+func (controller *Controller) SetPacketFormat(pp *network.PacketFormat) {
+	controller.packetFmt = pp
+}
+
 func (controller *Controller) GetRemoteHostName() string {
 	return controller.conn.RemoteAddr().String()
 }
