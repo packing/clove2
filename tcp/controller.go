@@ -327,7 +327,7 @@ func (controller *Controller) processRead() {
 			err = controller.parsePacket()
 			if err != nil {
 				base.LogError("The connection %d (%s) will be closed because of a data problem.", controller.GetId().Integer(), controller.GetRemoteHostName())
-				//base.LogVerbose("The full stack:\n\n%+v\n\n", err)
+				fmt.Printf("The full stack:\n\n%+v\n\n\n", err)
 				controller.ExitAndNotify("controller.parsePacket")
 				break
 			}
