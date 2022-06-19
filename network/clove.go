@@ -52,9 +52,9 @@ func (p *ClovePacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 
 	packetLen = packetLen & PacketMaxLength
 
-	if ptop == 0 || ptov == 0 {
-		return errors.New(ErrorDataNotMatch), nil, 0
-	}
+	//if ptop == 0 || ptov == 0 {
+	//	return errors.New(ErrorDataNotMatch), nil, 0
+	//}
 
 	if packetLen > PacketMaxLength || packetLen < PacketCloveHeaderLength {
 		return errors.New(ErrorDataIsDamage), nil, 0
