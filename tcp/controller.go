@@ -113,6 +113,8 @@ func (controller *Controller) SetPacketProcessor(pp network.PacketProcessor) {
 
 func (controller *Controller) SetPacketFormat(pp *network.PacketFormat) {
 	controller.packetFmt = pp
+	controller.setDataReceivedFlag()
+	controller.setReadyedFlag()
 }
 
 func (controller *Controller) GetRemoteHostName() string {
