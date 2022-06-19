@@ -97,7 +97,7 @@ func (p *ClovePacketParser) ParseFromBuffer(b base.Buffer) (error, []Packet) {
 		packetLen = packetLen & PacketMaxLength
 
 		if packetLen > l {
-			return errors.New(ErrorDataNotReady), pcks
+			return nil, pcks
 		}
 
 		in, n := b.Next(packetLen)
