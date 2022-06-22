@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
@@ -130,6 +131,12 @@ func (id MachineID) GetHash() []byte {
 		return []byte("")
 	}
 	s := new(strings.Builder)
+	sort.Slice(id.cpuId, func(i, j int) bool {
+		return id.cpuId[i] < id.cpuId[j]
+	})
+	sort.Slice(id.hwAddr, func(i, j int) bool {
+		return id.hwAddr[i] < id.hwAddr[j]
+	})
 	for _, cpuId := range id.cpuId {
 		s.WriteString(cpuId)
 		s.WriteString("|")
