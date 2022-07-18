@@ -102,14 +102,6 @@ func (c *Controller) bind() error {
 	if err != nil {
 		return err
 	}
-	//
-	//l := 5592405
-	//err = c.conn.SetWriteBuffer(l)
-	//if err != nil {
-	//	base.LogError("SetWriteBuffer error: ", l, err)
-	//} else {
-	//	base.LogError("SetWriteBuffer susccess: %d", l)
-	//}
 	return nil
 }
 
@@ -135,7 +127,7 @@ func (c *Controller) SendPacket(addr string, sendPck network.Packet) bool {
 		if err == nil {
 			err := c.sendTo(addr, raw)
 			if err != nil {
-				//base.LogError("send to %s error: %s", addr, err.Error())
+				base.LogError("send to %s error: %s", addr, err.Error())
 				return false
 			}
 		}
@@ -171,7 +163,7 @@ func (c *Controller) sendTo(dstAddr string, data []byte) error {
 	if n != len(data) {
 		return errors.Errorf("The data sent is incomplete")
 	} else {
-		//base.LogVerbose("成功发送 %d 字节", n)
+		base.LogVerbose("WriteToUnix %s Bytes %d", dstAddr, n)
 	}
 
 	return nil
@@ -207,6 +199,8 @@ func (c *Controller) read() error {
 		return err
 	}
 
+	base.LogVerbose("ReadFromUnix %s Bytes %d", from.String(), n)
+
 	var fmtPck = c.packetFmt
 	if fmtPck != nil {
 		err, pck, _ := fmtPck.Parser.ParseFromBytes(c.readBuf[:n])
@@ -216,13 +210,11 @@ func (c *Controller) read() error {
 				binPck, ok := pck.(*network.BinaryPacket)
 				if ok {
 					binPck.From = from.String()
-					//pck = binPck
 				}
 			case network.PacketTypeText:
 				txtPck, ok := pck.(*network.TextPacket)
 				if ok {
 					txtPck.From = from.String()
-					//pck = txtPck
 				}
 			}
 
