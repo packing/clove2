@@ -194,16 +194,19 @@ func (c *Controller) SendMsgPacket(dstAddr string, sendPck network.Packet) error
 }
 
 func (c *Controller) read() error {
-	n, from, err := c.conn.ReadFromUnix(c.readBuf)
+	buf := make([]byte, c.packetLimit)
+	n, from, err := c.conn.ReadFromUnix(buf)
 	if err != nil {
 		return err
 	}
 
-	base.LogVerbose("ReadFromUnix %s Bytes %d", from.String(), n)
+	if n > 0 {
+		base.LogVerbose("ReadFromUnix %s Bytes %d", from.String(), n)
+	}
 
 	var fmtPck = c.packetFmt
 	if fmtPck != nil {
-		err, pck, _ := fmtPck.Parser.ParseFromBytes(c.readBuf[:n])
+		err, pck, _ := fmtPck.Parser.ParseFromBytes(buf[:n])
 		if err == nil {
 			switch pck.GetType() {
 			case network.PacketTypeBinary:
