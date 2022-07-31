@@ -48,11 +48,19 @@ func (p *HTTPPacketParser) ParseFromBytes(in []byte) (error, Packet, int) {
 	packet.Request = req
 	packet.ResponseHeader = make(http.Header)
 	if req.ContentLength > 0 && req.ContentLength <= HttpMaxLengthSupported {
-		var body = make([]byte, req.ContentLength)
-		_, err := req.Body.Read(body)
-		if err == nil {
-			packet.Body = body
+		err = req.ParseMultipartForm(HttpMaxLengthSupported)
+		if err != nil {
+			var body = make([]byte, req.ContentLength)
+			_, err := req.Body.Read(body)
+			if err == nil {
+				packet.Body = body
+			}
 		}
+		//var body = make([]byte, req.ContentLength)
+		//_, err := req.Body.Read(body)
+		//if err == nil {
+		//	packet.Body = body
+		//}
 	}
 
 	return nil, packet, 0
