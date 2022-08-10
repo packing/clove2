@@ -163,7 +163,7 @@ func (c *Controller) sendTo(dstAddr string, data []byte) error {
 	if n != len(data) {
 		return errors.Errorf("The data sent is incomplete")
 	} else {
-		base.LogVerbose("WriteToUnix %s Bytes %d", dstAddr, n)
+		//base.LogVerbose("WriteToUnix %s Bytes %d", dstAddr, n)
 	}
 
 	return nil
@@ -201,7 +201,7 @@ func (c *Controller) read() error {
 	}
 
 	if n > 0 {
-		base.LogVerbose("ReadFromUnix %s Bytes %d", from.String(), n)
+		//base.LogVerbose("ReadFromUnix %s Bytes %d", from.String(), n)
 	}
 
 	var fmtPck = c.packetFmt
