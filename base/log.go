@@ -70,10 +70,10 @@ func logAndLevel(level int, format string, v ...interface{}) {
 		if err != nil {
 			return
 		}
-		logger = log.New(iowriter, fmt.Sprintf("[%s]", LogLevelTags[level]), log.Ltime)
+		logger = log.New(iowriter, fmt.Sprintf("[%s]", LogLevelTags[level]), log.Lmicroseconds)
 		logger.Println(s)
 	} else {
-		log.SetFlags(log.Ltime)
+		log.SetFlags(log.Lmicroseconds)
 		log.SetPrefix(fmt.Sprintf("[%s]", LogLevelTags[level]))
 		log.Println(s)
 	}
