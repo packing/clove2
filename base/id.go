@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -97,6 +98,21 @@ type MachineID struct {
 	hwAddr []string
 }
 
+func parseIp(s string) *net.IPNet {
+	i := strings.Index(s, "/")
+	if i < 0 {
+		return nil
+	}
+	addr, mask := s[:i], s[i+1:]
+	ip := net.ParseIP(addr)
+	n, _ := strconv.Atoi(mask)
+	if n > 32 || n < 0 {
+		return nil
+	}
+	m := net.CIDRMask(n, 8*4)
+	return &net.IPNet{IP: ip, Mask: m}
+}
+
 func GetMachineID() *MachineID {
 	id := new(MachineID)
 	infos, err := cpu.Info()
@@ -116,7 +132,26 @@ func GetMachineID() *MachineID {
 		id.hwAddr = make([]string, 0)
 		for _, netinfo := range nets {
 			if len(netinfo.HardwareAddr.String()) > 0 {
-				id.hwAddr = append(id.hwAddr, netinfo.HardwareAddr.String())
+
+				var sIpv4 *net.IPNet = nil
+				address, _ := netinfo.Addrs()
+				for _, v := range address {
+					ipStr := v.String()
+					if 4 == len(strings.Split(ipStr, ".")) {
+						sIpv4 = parseIp(ipStr)
+						break
+					}
+				}
+				if sIpv4 != nil &&
+					!sIpv4.IP.IsGlobalUnicast() &&
+					!sIpv4.IP.IsInterfaceLocalMulticast() &&
+					!sIpv4.IP.IsLinkLocalMulticast() &&
+					!sIpv4.IP.IsLinkLocalUnicast() &&
+					!sIpv4.IP.IsLoopback() &&
+					!sIpv4.IP.IsMulticast() &&
+					!sIpv4.IP.IsUnspecified() {
+					id.hwAddr = append(id.hwAddr, netinfo.HardwareAddr.String())
+				}
 			}
 		}
 	} else {
