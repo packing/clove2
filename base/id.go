@@ -142,8 +142,11 @@ func GetMachineID() *MachineID {
 						break
 					}
 				}
+				if sIpv4 == nil {
+					continue
+				}
 				if sIpv4 != nil &&
-					!sIpv4.IP.IsGlobalUnicast() &&
+					sIpv4.IP.IsGlobalUnicast() &&
 					!sIpv4.IP.IsInterfaceLocalMulticast() &&
 					!sIpv4.IP.IsLinkLocalMulticast() &&
 					!sIpv4.IP.IsLinkLocalUnicast() &&
